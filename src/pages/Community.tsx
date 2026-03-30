@@ -164,7 +164,7 @@ function WelcomeScreen({ onSelectFirst }: { onSelectFirst: () => void }) {
         </p>
       </div>
       <button onClick={onSelectFirst} className="neon-btn text-sm px-5 py-2">
-        Открыть #general
+        Открыть #общий-чат
       </button>
     </div>
   );
