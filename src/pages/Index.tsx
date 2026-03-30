@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 
 const VIP_URL = "https://web-app-hosting--preview.poehali.dev/login";
@@ -746,11 +747,11 @@ export default function Index() {
               </p>
 
               <div className="flex flex-wrap gap-3 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
-                <button onClick={() => navTo("#community")}
+                <Link to="/community"
                   className="neon-btn text-sm px-6 py-3 flex items-center gap-2">
                   <Icon name="Users" size={16} />
                   К комьюнити и аналитике
-                </button>
+                </Link>
                 <a href={VIP_URL} target="_blank" rel="noopener noreferrer"
                   className="neon-btn text-sm px-6 py-3 flex items-center gap-2">
                   <Icon name="Crown" size={16} />
@@ -843,6 +844,10 @@ export default function Index() {
                         className="neon-btn text-sm px-5 py-2.5 inline-flex items-center gap-2">
                         <Icon name="Crown" size={15} /> Войти в VIP-клуб
                       </a>
+                    ) : section.id === "community" ? (
+                      <Link to="/community" className="neon-btn-outline text-sm px-5 py-2.5 inline-flex items-center gap-2">
+                        {section.cta} <Icon name="ArrowRight" size={14} />
+                      </Link>
                     ) : (
                       <button className="neon-btn-outline text-sm px-5 py-2.5 inline-flex items-center gap-2">
                         {section.cta} <Icon name="ArrowRight" size={14} />
