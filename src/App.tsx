@@ -12,6 +12,7 @@ import Tournaments from "./pages/Tournaments";
 import Vip from "./pages/Vip";
 import Education from "./pages/Education";
 import Reviews from "./pages/Reviews";
+import ReflectionArticle from "./pages/ReflectionArticle";
 import Admin from "./pages/admin/Admin";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/community" element={<Community />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/reflections" element={<Reflections />} />
+          <Route path="/reflections/:id" element={<ReflectionArticle />} />
           <Route path="/tournaments" element={<Tournaments />} />
           <Route path="/vip" element={<Vip />} />
           <Route path="/education" element={<Education />} />

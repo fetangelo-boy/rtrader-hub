@@ -27,14 +27,14 @@ ALLOWED_SECTIONS = {"reflections", "analytics", "education", "tournaments", "aut
 
 # Поля разрешённые к записи для каждого раздела
 FIELDS = {
-    "reflections": ["title", "tag", "read_time", "preview", "image_url", "is_visible", "sort_order"],
+    "reflections": ["title", "tag", "tags", "read_time", "preview", "body", "image_url", "is_visible", "sort_order"],
     "analytics":   ["instrument", "title", "category", "direction", "entry", "target",
-                    "stop", "risk", "description", "is_visible", "sort_order"],
+                    "stop", "risk", "description", "image_url", "is_visible", "sort_order"],
     "education":   ["number", "title", "description", "lessons", "duration", "level",
-                    "topics", "is_free", "is_visible", "sort_order"],
+                    "topics", "image_url", "is_free", "is_visible", "sort_order"],
     "tournaments": ["name", "status", "start_date", "end_date", "instrument",
                     "description", "prize", "participants", "winner", "result",
-                    "is_visible", "sort_order"],
+                    "image_url", "is_visible", "sort_order"],
     "author":      ["heading", "body", "tags"],
 }
 

@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "POST без токена — 401",
+      "method": "POST",
+      "path": "/",
+      "body": { "image": "", "filename": "test.jpg" },
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

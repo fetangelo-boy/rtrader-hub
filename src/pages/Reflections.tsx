@@ -27,7 +27,12 @@ export default function Reflections() {
       .catch(() => setLoading(false));
   }, []);
 
-  const filtered = activeTag === "Все" ? articles : articles.filter(a => a.tag === activeTag);
+  const filtered = activeTag === "Все"
+    ? articles
+    : articles.filter(a => {
+        const allTags = (a.tags || a.tag || "").split(",").map((t: string) => t.trim());
+        return allTags.includes(activeTag);
+      });
 
   return (
     <div className="neon-grid-bg min-h-screen text-white font-montserrat">
@@ -86,11 +91,12 @@ export default function Reflections() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-12">
             {filtered.map(article => {
-              const accent = TAG_ACCENTS[article.tag] || "#9B30FF";
+              const tagList = (article.tags || article.tag || "").split(",").map((t: string) => t.trim()).filter(Boolean);
+              const accent = TAG_ACCENTS[tagList[0]] || "#9B30FF";
               const dateStr = article.created_at ? article.created_at.split("T")[0] : "";
               return (
-                <div key={article.id}
-                  className="glass-card flex flex-col gap-0 cursor-pointer hover:border-white/20 transition-all group overflow-hidden">
+                <Link key={article.id} to={`/reflections/${article.id}`}
+                  className="glass-card flex flex-col gap-0 hover:border-white/20 transition-all group overflow-hidden">
                   {article.image_url && (
                     <div className="w-full h-40 overflow-hidden flex-shrink-0">
                       <img src={article.image_url} alt={article.title}
@@ -98,11 +104,15 @@ export default function Reflections() {
                     </div>
                   )}
                   <div className="p-6 flex flex-col gap-3 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
-                        style={{ color: accent, borderColor: `${accent}40`, background: `${accent}10` }}>
-                        {article.tag}
-                      </span>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {tagList.map(t => (
+                          <span key={t} className="text-xs px-2.5 py-0.5 rounded-full font-semibold border"
+                            style={{ color: TAG_ACCENTS[t] || accent, borderColor: `${TAG_ACCENTS[t] || accent}40`, background: `${TAG_ACCENTS[t] || accent}10` }}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
                       <div className="flex items-center gap-1.5 text-xs text-white/30">
                         <Icon name="Clock" size={11} /> {article.read_time}
                       </div>
@@ -117,7 +127,7 @@ export default function Reflections() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
