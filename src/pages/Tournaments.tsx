@@ -50,7 +50,7 @@ export default function Tournaments() {
             <Link to="/" className="text-white/50 hover:text-white text-sm transition-colors flex items-center gap-1.5">
               <Icon name="ArrowLeft" size={14} /> <span className="hidden sm:inline">На главную</span>
             </Link>
-            <a href={TG_URL} target="_blank" rel="noopener noreferrer" className="neon-btn text-xs px-3 py-1.5">TG</a>
+            <a href="https://t.me/RTrader11" target="_blank" rel="noopener noreferrer" className="neon-btn text-xs px-3 py-1.5">TG</a>
           </div>
         </div>
       </nav>
