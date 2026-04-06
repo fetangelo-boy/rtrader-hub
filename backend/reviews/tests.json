@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "GET reviews — возвращает список",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": { "reviews": [] },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST review — успешная отправка",
+      "method": "POST",
+      "path": "/",
+      "body": { "name": "Тест", "status": "Участник", "text": "Тестовый отзыв для проверки API" },
+      "expectedStatus": 201,
+      "expectedBody": { "ok": true },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST review — ошибка без имени",
+      "method": "POST",
+      "path": "/",
+      "body": { "name": "", "text": "Текст есть" },
+      "expectedStatus": 400,
+      "expectedBody": { "error": "Имя и текст обязательны" },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

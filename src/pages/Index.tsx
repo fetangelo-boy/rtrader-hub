@@ -1,19 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 
 const VIP_URL = "https://web-app-hosting--preview.poehali.dev/login";
 const TG_URL = "https://t.me/RTrader11";
 
 const NAV_ITEMS = [
-  { label: "Комьюнити", href: "#community" },
-  { label: "Аналитика", href: "#analytics" },
-  { label: "Рефлексии", href: "#reflexions" },
-  { label: "Конкурсы", href: "#contests" },
-  { label: "VIP-клуб", href: "#vip" },
-  { label: "Обучение", href: "#education" },
-  { label: "Об авторе", href: "#author" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Комьюнити", href: "/community", isRoute: true },
+  { label: "Аналитика", href: "/analytics", isRoute: true },
+  { label: "Рефлексии", href: "/reflections", isRoute: true },
+  { label: "Конкурсы", href: "/tournaments", isRoute: true },
+  { label: "VIP-клуб", href: "/vip", isRoute: true },
+  { label: "Обучение", href: "/education", isRoute: true },
+  { label: "Отзывы", href: "/reviews", isRoute: true },
+  { label: "Об авторе", href: "#author", isRoute: false },
 ];
 
 const TICKER_ITEMS = [
@@ -41,7 +41,7 @@ const STATS = [
 const SECTIONS = [
   {
     id: "community",
-    href: "#community",
+    href: "/community",
     icon: "Users",
     title: "Комьюнити трейдеров",
     short: "Чаты, обсуждения, обмен опытом и поддержка",
@@ -57,10 +57,11 @@ const SECTIONS = [
     accent: "#00E5FF",
     glow: "rgba(0,229,255,0.25)",
     grad: "from-[#00E5FF] to-[#4169FF]",
+    isRoute: true,
   },
   {
     id: "analytics",
-    href: "#analytics",
+    href: "/analytics",
     icon: "TrendingUp",
     title: "Аналитика и торговые идеи",
     short: "Обзоры рынков, уровни, сценарии, идеи с рисками",
@@ -76,10 +77,11 @@ const SECTIONS = [
     accent: "#FFD700",
     glow: "rgba(255,200,0,0.25)",
     grad: "from-[#FFD700] to-[#FF8C00]",
+    isRoute: true,
   },
   {
     id: "reflexions",
-    href: "#reflexions",
+    href: "/reflections",
     icon: "Brain",
     title: "Рефлексии трейдера",
     short: "Психология, дисциплина, работа с убытками",
@@ -95,10 +97,11 @@ const SECTIONS = [
     accent: "#9B30FF",
     glow: "rgba(155,48,255,0.3)",
     grad: "from-[#9B30FF] to-[#FF2D78]",
+    isRoute: true,
   },
   {
     id: "contests",
-    href: "#contests",
+    href: "/tournaments",
     icon: "Trophy",
     title: "Конкурсы и турниры",
     short: "Виртуальная торговля, рейтинг, призы",
@@ -114,10 +117,11 @@ const SECTIONS = [
     accent: "#FF8C00",
     glow: "rgba(255,140,0,0.3)",
     grad: "from-[#FF8C00] to-[#FF2D78]",
+    isRoute: true,
   },
   {
     id: "vip",
-    href: VIP_URL,
+    href: "/vip",
     icon: "Crown",
     title: "VIP-клуб RTrader",
     short: "Закрытое комьюнити, сигналы, разборы портфеля",
@@ -129,15 +133,15 @@ const SECTIONS = [
       "Структурированные разборы сделок",
       "Прямой доступ к автору и поддержка",
     ],
-    cta: "Войти в VIP-клуб",
+    cta: "Узнать о VIP-клубе",
     accent: "#FF2D78",
     glow: "rgba(255,45,120,0.35)",
     grad: "from-[#FF2D78] to-[#9B30FF]",
-    isVip: true,
+    isRoute: true,
   },
   {
     id: "education",
-    href: "#education",
+    href: "/education",
     icon: "BookOpen",
     title: "Обучение и база знаний",
     short: "Структурированный курс от основ до стратегий",
@@ -153,6 +157,7 @@ const SECTIONS = [
     accent: "#4169FF",
     glow: "rgba(65,105,255,0.3)",
     grad: "from-[#4169FF] to-[#9B30FF]",
+    isRoute: true,
   },
 ];
 
@@ -536,9 +541,10 @@ function SectionCarousel() {
     scrollToIdx(activeRef.current + 1);
   };
 
+  const navigate = useNavigate();
   const navigateTo = (section: (typeof SECTIONS)[0]) => {
-    if (section.isVip) {
-      window.open(section.href, "_blank");
+    if (section.isRoute) {
+      navigate(section.href);
     } else {
       const el = document.querySelector(section.href);
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -642,10 +648,15 @@ export default function Index() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navTo = (href: string) => {
+  const routerNavigate = useNavigate();
+  const navTo = (href: string, isRoute?: boolean) => {
     setMenuOpen(false);
-    const el = document.querySelector(href);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (isRoute) {
+      routerNavigate(href);
+    } else {
+      const el = document.querySelector(href);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   return (
@@ -663,7 +674,7 @@ export default function Index() {
 
           <div className="hidden xl:flex items-center gap-5">
             {NAV_ITEMS.map((item) => (
-              <button key={item.href} onClick={() => navTo(item.href)} className="nav-link">{item.label}</button>
+              <button key={item.href} onClick={() => navTo(item.href, item.isRoute)} className="nav-link">{item.label}</button>
             ))}
           </div>
 
@@ -687,7 +698,7 @@ export default function Index() {
           <div className="xl:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 px-4 py-6">
             <div className="flex flex-col gap-3">
               {NAV_ITEMS.map((item) => (
-                <button key={item.href} onClick={() => navTo(item.href)}
+                <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
                   className="text-left nav-link text-base py-2 border-b border-white/5">{item.label}</button>
               ))}
               <div className="flex gap-3 pt-4">
@@ -757,11 +768,11 @@ export default function Index() {
                   <Icon name="Crown" size={16} />
                   Войти в VIP-клуб
                 </a>
-                <button onClick={() => navTo("#education")}
+                <Link to="/education"
                   className="text-sm text-white/40 hover:text-white/75 transition-colors underline underline-offset-4 decoration-white/20 hover:decoration-white/50 flex items-center gap-1.5 px-2">
                   Перейти к обучению
                   <Icon name="ArrowRight" size={13} />
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -839,20 +850,12 @@ export default function Index() {
                     <p className="text-white/50 leading-relaxed mb-6 font-light text-sm max-w-lg">
                       {section.description}
                     </p>
-                    {section.isVip ? (
-                      <a href={VIP_URL} target="_blank" rel="noopener noreferrer"
-                        className="neon-btn text-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        <Icon name="Crown" size={15} /> Войти в VIP-клуб
-                      </a>
-                    ) : section.id === "community" ? (
-                      <Link to="/community" className="neon-btn-outline text-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        {section.cta} <Icon name="ArrowRight" size={14} />
-                      </Link>
-                    ) : (
-                      <button className="neon-btn-outline text-sm px-5 py-2.5 inline-flex items-center gap-2">
-                        {section.cta} <Icon name="ArrowRight" size={14} />
-                      </button>
-                    )}
+                    <Link
+                      to={section.href}
+                      className="neon-btn-outline text-sm px-5 py-2.5 inline-flex items-center gap-2"
+                    >
+                      {section.cta} <Icon name="ArrowRight" size={14} />
+                    </Link>
                   </div>
                   <div className="flex-shrink-0 w-full md:w-64 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
                     {section.bullets.map((b, i) => (
@@ -885,10 +888,10 @@ export default function Index() {
               <p className="text-white/40 mb-7 max-w-lg mx-auto font-light text-sm">
                 Закрытое комьюнити, регулярная аналитика, разборы портфеля и прямой контакт с автором.
               </p>
-              <a href={VIP_URL} target="_blank" rel="noopener noreferrer"
+              <Link to="/vip"
                 className="neon-btn inline-flex items-center gap-2 text-base px-8 py-3.5">
-                <Icon name="Crown" size={18} /> Войти в VIP-клуб
-              </a>
+                <Icon name="Crown" size={18} /> Узнать о VIP-клубе
+              </Link>
             </div>
           </div>
         </Reveal>
@@ -1005,7 +1008,7 @@ export default function Index() {
 
             <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
               {NAV_ITEMS.map((item) => (
-                <button key={item.href} onClick={() => navTo(item.href)}
+                <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
                   className="text-xs text-white/22 hover:text-white/60 transition-colors font-medium uppercase tracking-widest">
                   {item.label}
                 </button>
