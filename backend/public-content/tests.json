@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "name": "GET reflections — возвращает items",
+      "method": "GET",
+      "path": "/?section=reflections",
+      "expectedStatus": 200,
+      "expectedBody": { "items": [] },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET неизвестный section — 400",
+      "method": "GET",
+      "path": "/?section=unknown",
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
