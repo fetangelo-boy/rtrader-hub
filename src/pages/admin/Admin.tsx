@@ -15,7 +15,7 @@ export default function Admin() {
   const { isAuthed, login, logout, loading, error } = useAdminAuth();
 
   if (!isAuthed) {
-    return <AdminLogin onLogin={login} loading={loading} error={error} />;
+    return <AdminLogin onLogin={(u, p) => login(u, p)} loading={loading} error={error} />;
   }
 
   return (

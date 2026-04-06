@@ -4,7 +4,7 @@
       "name": "POST login — неверный пароль → 401",
       "method": "POST",
       "path": "/?action=login",
-      "body": { "password": "wrong" },
+      "body": { "username": "admin", "password": "wrong" },
       "expectedStatus": 401,
       "bodyMatcher": "partial"
     },

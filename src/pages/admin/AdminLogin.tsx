@@ -2,17 +2,18 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 
 interface Props {
-  onLogin: (password: string) => void;
+  onLogin: (username: string, password: string) => void;
   loading: boolean;
   error: string;
 }
 
 export default function AdminLogin({ onLogin, loading, error }: Props) {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.trim()) onLogin(password.trim());
+    if (username.trim() && password.trim()) onLogin(username.trim(), password.trim());
   };
 
   return (
@@ -28,13 +29,26 @@ export default function AdminLogin({ onLogin, loading, error }: Props) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Логин</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Введи логин"
+              autoFocus
+              autoComplete="username"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#FFD700]/50 transition-colors"
+            />
+          </div>
+
+          <div>
             <label className="text-xs text-white/40 mb-1.5 block">Пароль</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Введи пароль администратора"
-              autoFocus
+              placeholder="Введи пароль"
+              autoComplete="current-password"
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 focus:outline-none focus:border-[#FFD700]/50 transition-colors"
             />
           </div>
@@ -47,7 +61,7 @@ export default function AdminLogin({ onLogin, loading, error }: Props) {
 
           <button
             type="submit"
-            disabled={loading || !password.trim()}
+            disabled={loading || !username.trim() || !password.trim()}
             className="neon-btn py-3 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? "Проверяю..." : "Войти"}
