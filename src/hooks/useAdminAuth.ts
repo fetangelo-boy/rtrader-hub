@@ -52,3 +52,7 @@ export function useAdminAuth() {
 export function getAdminToken(): string {
   return localStorage.getItem(TOKEN_KEY) || "";
 }
+
+export function useIsAdminAuthed(): boolean {
+  return !!localStorage.getItem(TOKEN_KEY);
+}

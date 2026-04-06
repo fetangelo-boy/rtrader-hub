@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { getAdminToken } from "@/hooks/useAdminAuth";
 
 const VIP_URL = "https://web-app-hosting--preview.poehali.dev/login";
 const TG_URL = "https://t.me/RTrader11";
@@ -679,6 +680,14 @@ export default function Index() {
           </div>
 
           <div className="hidden xl:flex items-center gap-3">
+            {getAdminToken() && (
+              <Link
+                to="/rt-manage"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#FFD700]/70 hover:text-[#FFD700] border border-[#FFD700]/20 hover:border-[#FFD700]/40 bg-[#FFD700]/5 hover:bg-[#FFD700]/10 transition-all"
+              >
+                <Icon name="Shield" size={12} /> Admin
+              </Link>
+            )}
             <a href={TG_URL} target="_blank" rel="noopener noreferrer"
               className="neon-btn-outline text-xs px-3 py-2 flex items-center gap-1.5">
               <Icon name="Send" size={13} /> Telegram
