@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-const AUTH_KEY = "rtrader_admin_auth";
+const TOKEN_KEY = "rtrader_admin_token";
 const AUTH_URL = "https://functions.poehali.dev/2c438a15-2b16-4025-b518-29abd4812fc7";
 
 export function useAdminAuth() {
   const [isAuthed, setIsAuthed] = useState<boolean>(() => {
-    return localStorage.getItem(AUTH_KEY) === "1";
+    return !!localStorage.getItem(TOKEN_KEY);
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,14 +14,14 @@ export function useAdminAuth() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(AUTH_URL, {
+      const res = await fetch(`${AUTH_URL}?action=login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
-        localStorage.setItem(AUTH_KEY, "1");
-        localStorage.setItem("rtrader_admin_pwd", password);
+        const data = await res.json();
+        localStorage.setItem(TOKEN_KEY, data.token);
         setIsAuthed(true);
       } else {
         setError("Неверный пароль");
@@ -33,15 +33,22 @@ export function useAdminAuth() {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem(AUTH_KEY);
-    localStorage.removeItem("rtrader_admin_pwd");
+  const logout = async () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    localStorage.removeItem(TOKEN_KEY);
     setIsAuthed(false);
+    if (token) {
+      fetch(`${AUTH_URL}?action=logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      }).catch(() => {});
+    }
   };
 
   return { isAuthed, login, logout, loading, error };
 }
 
-export function getAdminPassword(): string {
-  return localStorage.getItem("rtrader_admin_pwd") || "";
+export function getAdminToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || "";
 }

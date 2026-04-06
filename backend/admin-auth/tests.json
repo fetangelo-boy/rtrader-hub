@@ -1,11 +1,27 @@
 {
   "tests": [
     {
-      "name": "POST без пароля — 401 или 500",
+      "name": "POST login — неверный пароль → 401",
       "method": "POST",
-      "path": "/",
-      "body": { "password": "" },
-      "expectedStatus": 500,
+      "path": "/?action=login",
+      "body": { "password": "wrong" },
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST verify — нет токена → 401",
+      "method": "POST",
+      "path": "/?action=verify",
+      "body": { "token": "" },
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "POST logout — всегда 200",
+      "method": "POST",
+      "path": "/?action=logout",
+      "body": { "token": "nonexistent-token" },
+      "expectedStatus": 200,
       "bodyMatcher": "partial"
     }
   ]

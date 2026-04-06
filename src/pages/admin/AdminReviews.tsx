@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
-import { getAdminPassword } from "@/hooks/useAdminAuth";
+import { getAdminToken } from "@/hooks/useAdminAuth";
 
 const API_URL = "https://functions.poehali.dev/fee7830f-a5a8-4b57-9942-7b9462f259c1";
 
@@ -21,7 +21,7 @@ export default function AdminReviews() {
 
   const headers = {
     "Content-Type": "application/json",
-    "X-Admin-Password": getAdminPassword(),
+    "X-Admin-Token": getAdminToken(),
   };
 
   const fetchReviews = async () => {

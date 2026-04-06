@@ -1,8 +1,8 @@
 """
 Admin API для управления текстовым контентом сайта.
-GET / — все записи контента (можно фильтровать ?section=home)
-PUT / — { "section": "home", "key": "hero_title", "value": "..." } — обновить значение
-Все запросы требуют заголовок X-Admin-Password.
+GET /  — все записи контента (можно фильтровать ?section=home)
+PUT /  — { "section": "home", "key": "hero_title", "value": "..." }
+Все запросы требуют заголовок X-Admin-Token.
 """
 
 import json
@@ -13,7 +13,7 @@ import psycopg2.extras
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Password",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Token",
 }
 
 SCHEMA = "t_p67093308_rtrader_hub"
@@ -23,17 +23,27 @@ def get_connection():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
-def check_auth(event: dict) -> bool:
-    admin_password = os.environ.get("ADMIN_PASSWORD", "")
-    provided = event.get("headers", {}).get("X-Admin-Password", "")
-    return bool(admin_password) and provided == admin_password
+def check_token(event: dict) -> bool:
+    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
+    if not token:
+        return False
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token = %s AND expires_at > NOW()",
+        (token,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    return row is not None
 
 
 def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
-    if not check_auth(event):
+    if not check_token(event):
         return {
             "statusCode": 401,
             "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
@@ -49,12 +59,14 @@ def handler(event: dict, context) -> dict:
         section = params.get("section")
         if section:
             cur.execute(
-                f"SELECT id, section, key, value, label, to_char(updated_at, 'DD.MM.YYYY HH24:MI') as updated_at FROM {SCHEMA}.site_content WHERE section = %s ORDER BY section, key",
+                f"SELECT id, section, key, value, label, to_char(updated_at, 'DD.MM.YYYY HH24:MI') as updated_at "
+                f"FROM {SCHEMA}.site_content WHERE section = %s ORDER BY section, key",
                 (section,),
             )
         else:
             cur.execute(
-                f"SELECT id, section, key, value, label, to_char(updated_at, 'DD.MM.YYYY HH24:MI') as updated_at FROM {SCHEMA}.site_content ORDER BY section, key"
+                f"SELECT id, section, key, value, label, to_char(updated_at, 'DD.MM.YYYY HH24:MI') as updated_at "
+                f"FROM {SCHEMA}.site_content ORDER BY section, key"
             )
         items = [dict(r) for r in cur.fetchall()]
         cur.close()
@@ -81,14 +93,12 @@ def handler(event: dict, context) -> dict:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            f"""
-            UPDATE {SCHEMA}.site_content
-            SET value = %s, updated_at = NOW()
-            WHERE section = %s AND key = %s
-            """,
+            f"UPDATE {SCHEMA}.site_content SET value = %s, updated_at = NOW() "
+            f"WHERE section = %s AND key = %s",
             (str(value), section, key),
         )
         if cur.rowcount == 0:
+            conn.close()
             return {
                 "statusCode": 404,
                 "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
@@ -97,10 +107,8 @@ def handler(event: dict, context) -> dict:
         conn.commit()
         cur.close()
         conn.close()
-        return {
-            "statusCode": 200,
-            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
-            "body": json.dumps({"ok": True}),
-        }
+        return {"statusCode": 200, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"ok": True})}
 
-    return {"statusCode": 405, "headers": CORS_HEADERS, "body": json.dumps({"error": "Method not allowed"})}
+    return {"statusCode": 405, "headers": CORS_HEADERS,
+            "body": json.dumps({"error": "Method not allowed"})}
