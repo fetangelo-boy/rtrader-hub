@@ -665,55 +665,74 @@ export default function Index() {
 
       {/* NAV */}
       <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-black/70 backdrop-blur-xl border-b border-white/10" : "bg-transparent"}`}>
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <button onClick={() => navTo("#hero")} className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg brand-gradient-bg flex items-center justify-center shadow-lg">
-              <span className="font-russo text-black text-sm font-black">RT</span>
+        <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          {/* Логотип */}
+          <button onClick={() => navTo("#hero")} className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg brand-gradient-bg flex items-center justify-center shadow-lg">
+              <span className="font-russo text-black text-xs font-black">RT</span>
             </div>
-            <span className="font-russo text-xl tracking-wider">R<span className="brand-gradient">TRADER</span></span>
+            <span className="font-russo text-lg tracking-wider hidden sm:block">R<span className="brand-gradient">TRADER</span></span>
           </button>
 
-          <div className="hidden xl:flex items-center gap-5">
+          {/* Десктопное меню — только на 2xl */}
+          <div className="hidden 2xl:flex items-center gap-4 flex-1 justify-center">
             {NAV_ITEMS.map((item) => (
-              <button key={item.href} onClick={() => navTo(item.href, item.isRoute)} className="nav-link">{item.label}</button>
+              <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
+                className="nav-link text-xs whitespace-nowrap">{item.label}</button>
             ))}
           </div>
 
-          <div className="hidden xl:flex items-center gap-3">
+          {/* Правая часть */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Admin — только иконка на небольших экранах */}
             {getAdminToken() && (
-              <Link
-                to="/rt-manage"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#FFD700]/70 hover:text-[#FFD700] border border-[#FFD700]/20 hover:border-[#FFD700]/40 bg-[#FFD700]/5 hover:bg-[#FFD700]/10 transition-all"
-              >
-                <Icon name="Shield" size={12} /> Admin
+              <Link to="/rt-manage"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#FFD700]/70 hover:text-[#FFD700] border border-[#FFD700]/20 hover:border-[#FFD700]/40 bg-[#FFD700]/5 hover:bg-[#FFD700]/10 transition-all"
+                title="Панель администратора">
+                <Icon name="Shield" size={13} />
+                <span className="hidden lg:inline">Admin</span>
               </Link>
             )}
+            {/* Telegram — иконка на мобиле, текст на десктопе */}
             <a href={TG_URL} target="_blank" rel="noopener noreferrer"
-              className="neon-btn-outline text-xs px-3 py-2 flex items-center gap-1.5">
-              <Icon name="Send" size={13} /> Telegram
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-all text-xs"
+              title="Telegram">
+              <Icon name="Send" size={13} />
+              <span className="hidden sm:inline">TG</span>
             </a>
+            {/* VIP — иконка+текст всегда, но компактнее */}
             <a href={VIP_URL} target="_blank" rel="noopener noreferrer"
-              className="neon-btn text-xs px-4 py-2 flex items-center gap-1.5">
-              <Icon name="Crown" size={13} /> VIP-клуб
+              className="neon-btn text-xs px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
+              <Icon name="Crown" size={13} />
+              <span className="hidden sm:inline">VIP</span>
             </a>
+            {/* Бургер — появляется до 2xl */}
+            <button className="2xl:hidden p-1.5 text-white/70 hover:text-white ml-1" onClick={() => setMenuOpen(!menuOpen)}>
+              <Icon name={menuOpen ? "X" : "Menu"} size={22} />
+            </button>
           </div>
-
-          <button className="xl:hidden p-2 text-white/70 hover:text-white" onClick={() => setMenuOpen(!menuOpen)}>
-            <Icon name={menuOpen ? "X" : "Menu"} size={24} />
-          </button>
         </div>
 
+        {/* Мобильное меню */}
         {menuOpen && (
-          <div className="xl:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 px-4 py-6">
-            <div className="flex flex-col gap-3">
+          <div className="2xl:hidden bg-black/97 backdrop-blur-xl border-t border-white/10 px-4 py-5">
+            <div className="flex flex-col gap-1 mb-5">
               {NAV_ITEMS.map((item) => (
                 <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
-                  className="text-left nav-link text-base py-2 border-b border-white/5">{item.label}</button>
+                  className="text-left text-sm text-white/60 hover:text-white py-2.5 px-3 rounded-xl hover:bg-white/5 transition-all border-b border-white/5 last:border-0">
+                  {item.label}
+                </button>
               ))}
-              <div className="flex gap-3 pt-4">
-                <a href={TG_URL} target="_blank" rel="noopener noreferrer" className="neon-btn-outline flex-1 text-center text-sm py-2">Telegram</a>
-                <a href={VIP_URL} target="_blank" rel="noopener noreferrer" className="neon-btn flex-1 text-center text-sm py-2">VIP-клуб</a>
-              </div>
+            </div>
+            <div className="flex gap-2">
+              <a href={TG_URL} target="_blank" rel="noopener noreferrer"
+                className="flex-1 text-center py-2.5 rounded-xl border border-white/15 text-white/60 text-sm hover:text-white hover:border-white/30 transition-all">
+                Telegram
+              </a>
+              <a href={VIP_URL} target="_blank" rel="noopener noreferrer"
+                className="neon-btn flex-1 text-center text-sm py-2.5">
+                VIP-клуб
+              </a>
             </div>
           </div>
         )}
