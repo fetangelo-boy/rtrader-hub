@@ -102,45 +102,64 @@ def fetch_moex_stocks():
 
 
 def fetch_moex_index_change():
-    """Получить индекс IMOEX: текущее значение + изменение к открытию."""
+    """
+    Получить индекс IMOEX.
+    CURRENTVALUE — текущее значение (торги идут).
+    PREVPRICE — значение закрытия предыдущей сессии (всегда есть).
+    Если торги закрыты — показываем закрытие дня с пометкой.
+    """
     url = (
         "https://iss.moex.com/iss/engines/stock/markets/index/boards/SNDX/securities.json"
         "?securities=IMOEX&iss.meta=off"
         "&iss.only=marketdata,securities"
-        "&marketdata.columns=SECID,CURRENTVALUE,OPEN"
-        "&securities.columns=SECID,PREVPRICE"
+        "&marketdata.columns=SECID,CURRENTVALUE,OPEN,LASTVALUE"
+        "&securities.columns=SECID,PREVPRICE,LASTVALUE"
     )
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             d = json.loads(r.read())
 
-        md = {row[0]: row for row in d["marketdata"]["data"]}
-        sc = {row[0]: row for row in d["securities"]["data"]}
+        # Парсим по именам колонок — ISS может вернуть не все
+        md_cols = d["marketdata"]["columns"]
+        md_rows = d["marketdata"]["data"]
+        sc_cols = d["securities"]["columns"]
+        sc_rows = d["securities"]["data"]
 
-        row = md.get("IMOEX")
-        if not row:
+        def get_val(cols, row, name):
+            return row[cols.index(name)] if name in cols else None
+
+        md_row = next((r for r in md_rows if r[0] == "IMOEX"), None)
+        sc_row = next((r for r in sc_rows if r[0] == "IMOEX"), None)
+        if not md_row:
             return None
 
-        cur   = row[1]
-        open_ = row[2]
-        prev  = (sc.get("IMOEX") or [None, None])[1]
+        cur     = get_val(md_cols, md_row, "CURRENTVALUE")
+        open_   = get_val(md_cols, md_row, "OPEN")
+        last_md = get_val(md_cols, md_row, "LASTVALUE")
+        prev    = get_val(sc_cols, sc_row, "PREVPRICE") if sc_row else None
+        last_sc = get_val(sc_cols, sc_row, "LASTVALUE") if sc_row else None
 
-        if not cur:
+        val = cur or last_md or last_sc or prev
+        if not val:
             return None
 
-        base = open_ or prev or cur
-        pct  = ((cur - base) / base * 100) if base else 0
+        trading = bool(cur)
+
+        # Изменение: текущее vs открытие или предыдущее закрытие
+        base = open_ or prev or last_md
+        pct  = ((val - base) / base * 100) if base and base != val else 0
 
         return {
             "name": "IMOEX",
-            "price": fmt_price(cur),
+            "price": fmt_price(val),
             "change": fmt_change(pct),
             "up": pct >= 0,
-            "raw_price": cur,
+            "raw_price": val,
             "raw_change_pct": round(pct, 2),
             "source": "moex",
             "is_index": True,
+            "trading": trading,
         }
     except Exception:
         return None

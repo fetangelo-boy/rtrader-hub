@@ -49,18 +49,19 @@ function MiniDashboard({ quotes }: { quotes: Quote[] }) {
             style={{ color: "#FFD700", textShadow: "0 0 18px rgba(255,215,0,0.4)" }}>
             {imoex ? imoex.price : "—"}
           </div>
-          {imoex ? (
+          {imoex && (
             <span className={`text-sm font-black ${imoex.up ? "text-green-400" : "text-red-400"}`}
               style={{ textShadow: imoex.up ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(248,113,113,0.6)" }}>
               {imoex.change}
             </span>
-          ) : (
-            <span className="text-xs" style={{ color: "rgba(255,215,0,0.25)" }}>биржа закрыта</span>
           )}
         </div>
         <div className="flex items-center gap-2 mt-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse" />
-          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.25)" }}>МосБиржа · задержка 15 мин</span>
+          <span className="w-1.5 h-1.5 rounded-full inline-block animate-pulse"
+            style={{ background: imoex ? "#4ade80" : "rgba(255,215,0,0.4)" }} />
+          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.25)" }}>
+            {imoex ? "МосБиржа · задержка 15 мин" : "МосБиржа закрыта"}
+          </span>
         </div>
       </div>
 
