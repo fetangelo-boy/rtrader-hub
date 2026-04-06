@@ -16,6 +16,7 @@ import Vip from "./pages/Vip";
 import Community from "./pages/Community";
 
 import ClubIndex from "./pages/ClubIndex";
+import AdminPanel from "./pages/admin/Admin";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RestorePassword from "./pages/RestorePassword";
@@ -85,6 +86,9 @@ function AppRoutes() {
       <Route path="/profile" element={<AuthedRoute><Profile /></AuthedRoute>} />
       <Route path="/subscribe" element={<AuthedRoute><Paywall /></AuthedRoute>} />
       <Route path="/admin" element={<AdminRoute><ClubAdmin /></AdminRoute>} />
+
+      {/* Панель управления порталом */}
+      <Route path="/rt-manage/*" element={<AdminPanel />} />
 
       {/* Авторизация */}
       <Route path="/login" element={<LoginRoute><Login /></LoginRoute>} />
