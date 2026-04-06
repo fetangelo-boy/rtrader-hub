@@ -7,9 +7,17 @@ interface Props {
 }
 
 const NAV = [
-  { href: "/rt-manage", label: "Обзор", icon: "LayoutDashboard", exact: true },
-  { href: "/rt-manage/reviews", label: "Отзывы", icon: "MessageSquare", exact: false },
-  { href: "/rt-manage/content", label: "Контент", icon: "FileText", exact: false },
+  { href: "/rt-manage", label: "Обзор", icon: "LayoutDashboard" },
+  { href: "/rt-manage/reviews", label: "Отзывы", icon: "MessageSquare" },
+  { href: "/rt-manage/content", label: "Тексты сайта", icon: "FileText" },
+];
+
+const NAV_CMS = [
+  { href: "/rt-manage/cms/reflections", label: "Рефлексии", icon: "Brain" },
+  { href: "/rt-manage/cms/analytics", label: "Аналитика", icon: "TrendingUp" },
+  { href: "/rt-manage/cms/education", label: "Обучение", icon: "BookOpen" },
+  { href: "/rt-manage/cms/tournaments", label: "Конкурсы", icon: "Trophy" },
+  { href: "/rt-manage/cms/author", label: "Об авторе", icon: "User" },
 ];
 
 export default function AdminLayout({ children, onLogout }: Props) {
@@ -29,29 +37,30 @@ export default function AdminLayout({ children, onLogout }: Props) {
           <div className="text-xs text-white/25 mt-1 ml-9">admin panel</div>
         </div>
 
-        <nav className="flex-1 p-3 flex flex-col gap-1">
+        <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
           {NAV.map((item) => {
-            const isActive = item.exact
-              ? location.pathname === item.href
-              : location.pathname.startsWith(item.href) && !item.exact
-                ? location.pathname === item.href || location.pathname.startsWith(item.href + "/")
-                : false;
-            const active = item.exact
+            const active = item.href === "/rt-manage"
               ? location.pathname === item.href
               : location.pathname.startsWith(item.href);
-
             return (
-              <Link
-                key={item.href}
-                to={item.href}
+              <Link key={item.href} to={item.href}
                 className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all ${
-                  active
-                    ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20"
-                    : "text-white/45 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <Icon name={item.icon} size={15} />
-                {item.label}
+                  active ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20" : "text-white/45 hover:text-white hover:bg-white/5"
+                }`}>
+                <Icon name={item.icon} size={15} />{item.label}
+              </Link>
+            );
+          })}
+
+          <div className="text-xs text-white/20 uppercase tracking-widest px-3 pt-4 pb-1.5">Материалы</div>
+          {NAV_CMS.map((item) => {
+            const active = location.pathname.startsWith(item.href);
+            return (
+              <Link key={item.href} to={item.href}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all ${
+                  active ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20" : "text-white/40 hover:text-white hover:bg-white/5"
+                }`}>
+                <Icon name={item.icon} size={14} />{item.label}
               </Link>
             );
           })}

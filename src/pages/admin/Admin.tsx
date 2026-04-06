@@ -5,6 +5,11 @@ import AdminLayout from "./AdminLayout";
 import AdminDashboard from "./AdminDashboard";
 import AdminReviews from "./AdminReviews";
 import AdminContent from "./AdminContent";
+import CmsReflections from "./cms/CmsReflections";
+import CmsAnalytics from "./cms/CmsAnalytics";
+import CmsEducation from "./cms/CmsEducation";
+import CmsTournaments from "./cms/CmsTournaments";
+import CmsAuthor from "./cms/CmsAuthor";
 
 export default function Admin() {
   const { isAuthed, login, logout, loading, error } = useAdminAuth();
@@ -19,6 +24,11 @@ export default function Admin() {
         <Route index element={<AdminDashboard />} />
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="content" element={<AdminContent />} />
+        <Route path="cms/reflections" element={<CmsReflections />} />
+        <Route path="cms/analytics" element={<CmsAnalytics />} />
+        <Route path="cms/education" element={<CmsEducation />} />
+        <Route path="cms/tournaments" element={<CmsTournaments />} />
+        <Route path="cms/author" element={<CmsAuthor />} />
       </Routes>
     </AdminLayout>
   );
