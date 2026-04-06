@@ -22,6 +22,8 @@ export const useMessages = (channelId: string | null) =>
     queryFn: () => chatApi.getMessages(channelId!),
     enabled: !!channelId,
     staleTime: 0,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   });
 
 export const useSendMessage = () => {
