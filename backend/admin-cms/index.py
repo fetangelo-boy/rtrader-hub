@@ -25,7 +25,6 @@ SCHEMA = "t_p67093308_rtrader_hub"
 
 ALLOWED_SECTIONS = {"reflections", "analytics", "education", "tournaments", "author"}
 
-# Поля разрешённые к записи для каждого раздела
 FIELDS = {
     "reflections": ["title", "tag", "tags", "read_time", "preview", "body", "image_url", "is_visible", "sort_order"],
     "analytics":   ["type", "instrument", "title", "category", "direction", "entry", "target",
@@ -41,24 +40,37 @@ FIELDS = {
                     "reflections_cta_text", "reflections_cta_btn", "reflections_cta_url"],
 }
 
+SECTION_LABELS = {
+    "reflections": "Рефлексии",
+    "analytics": "Аналитика",
+    "education": "Обучение",
+    "tournaments": "Конкурсы",
+    "author": "Об авторе",
+}
 
-def conn():
+
+def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
-def check_token(event):
-    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
-    if not token:
-        return False
-    c = conn()
+def get_username(c, token: str) -> str:
     cur = c.cursor()
     cur.execute(
-        f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at>NOW()",
+        f"SELECT username FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at>NOW()",
         (token,)
     )
     row = cur.fetchone()
-    cur.close(); c.close()
-    return row is not None
+    cur.close()
+    return row[0] if row else ""
+
+
+def log_action(c, username: str, action: str, details: dict):
+    cur = c.cursor()
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.admin_activity_log (username, action, details) VALUES (%s, %s, %s)",
+        (username, action, json.dumps(details, ensure_ascii=False, default=str))
+    )
+    cur.close()
 
 
 def ok(data):
@@ -74,10 +86,18 @@ def err(code, msg):
 
 
 def handler(event: dict, context) -> dict:
+    """CMS: создание, редактирование, удаление материалов разделов сайта."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
-    if not check_token(event):
+    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
+    if not token:
+        return err(401, "Unauthorized")
+
+    c = get_conn()
+    username = get_username(c, token)
+    if not username:
+        c.close()
         return err(401, "Unauthorized")
 
     method = event.get("httpMethod", "GET")
@@ -86,13 +106,14 @@ def handler(event: dict, context) -> dict:
     item_id = params.get("id")
 
     if section and section not in ALLOWED_SECTIONS:
+        c.close()
         return err(400, f"Unknown section: {section}")
 
     # ── GET ────────────────────────────────────────────────────────────────────
     if method == "GET":
         if not section:
+            c.close()
             return err(400, "section required")
-        c = conn()
         cur = c.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         if section == "author":
             cur.execute(f"SELECT * FROM {SCHEMA}.author ORDER BY id LIMIT 1")
@@ -109,40 +130,44 @@ def handler(event: dict, context) -> dict:
     if not section:
         section = (body.get("section") or "").strip()
     if section not in ALLOWED_SECTIONS:
+        c.close()
         return err(400, "section required")
 
     allowed = FIELDS[section]
+    section_label = SECTION_LABELS.get(section, section)
 
     # ── POST ───────────────────────────────────────────────────────────────────
     if method == "POST":
         data = {k: body[k] for k in allowed if k in body}
         if not data:
+            c.close()
             return err(400, "No fields provided")
         cols = ", ".join(data.keys())
         placeholders = ", ".join(["%s"] * len(data))
         vals = list(data.values())
-        c = conn()
         cur = c.cursor()
         cur.execute(
             f"INSERT INTO {SCHEMA}.{section} ({cols}) VALUES ({placeholders}) RETURNING id",
             vals
         )
         new_id = cur.fetchone()[0]
-        conn_commit = c; conn_commit.commit()
-        cur.close(); c.close()
+        log_action(c, username, "cms_create",
+                   {"section": section, "section_label": section_label, "id": new_id,
+                    "title": str(data.get("title") or data.get("name") or "")[:100]})
+        c.commit(); cur.close(); c.close()
         return ok({"ok": True, "id": new_id})
 
     # ── PUT ────────────────────────────────────────────────────────────────────
     if method == "PUT":
         if not item_id:
+            c.close()
             return err(400, "id required")
         if section == "author":
             data = {k: body[k] for k in allowed if k in body}
             if not data:
+                c.close()
                 return err(400, "No fields provided")
-            c = conn()
             cur = c.cursor()
-            # upsert для author (одна строка)
             cur.execute(f"SELECT id FROM {SCHEMA}.author LIMIT 1")
             existing = cur.fetchone()
             if existing:
@@ -153,41 +178,60 @@ def handler(event: dict, context) -> dict:
                 cols = ", ".join(data.keys())
                 ph = ", ".join(["%s"] * len(data))
                 cur.execute(f"INSERT INTO {SCHEMA}.author ({cols}) VALUES ({ph})", list(data.values()))
+            log_action(c, username, "cms_update",
+                       {"section": section, "section_label": section_label, "fields": list(data.keys())})
             c.commit(); cur.close(); c.close()
             return ok({"ok": True})
         data = {k: body[k] for k in allowed if k in body}
         if not data:
+            c.close()
             return err(400, "No fields provided")
         sets = ", ".join(f"{k}=%s" for k in data)
-        c = conn()
         cur = c.cursor()
         cur.execute(f"UPDATE {SCHEMA}.{section} SET {sets} WHERE id=%s",
                     list(data.values()) + [int(item_id)])
+        log_action(c, username, "cms_update",
+                   {"section": section, "section_label": section_label,
+                    "id": int(item_id), "fields": list(data.keys()),
+                    "title": str(data.get("title") or data.get("name") or "")[:100]})
         c.commit(); cur.close(); c.close()
         return ok({"ok": True})
 
     # ── PATCH (is_visible) ─────────────────────────────────────────────────────
     if method == "PATCH":
         if not item_id:
+            c.close()
             return err(400, "id required")
         is_visible = body.get("is_visible")
         if is_visible is None:
+            c.close()
             return err(400, "is_visible required")
-        c = conn()
         cur = c.cursor()
         cur.execute(f"UPDATE {SCHEMA}.{section} SET is_visible=%s WHERE id=%s",
                     (bool(is_visible), int(item_id)))
+        log_action(c, username, "cms_visibility",
+                   {"section": section, "section_label": section_label,
+                    "id": int(item_id), "is_visible": bool(is_visible)})
         c.commit(); cur.close(); c.close()
         return ok({"ok": True})
 
     # ── DELETE ─────────────────────────────────────────────────────────────────
     if method == "DELETE":
         if not item_id:
+            c.close()
             return err(400, "id required")
-        c = conn()
+        cur = c.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(f"SELECT * FROM {SCHEMA}.{section} WHERE id=%s", (int(item_id),))
+        old = cur.fetchone()
+        cur.close()
         cur = c.cursor()
         cur.execute(f"DELETE FROM {SCHEMA}.{section} WHERE id=%s", (int(item_id),))
+        log_action(c, username, "cms_delete",
+                   {"section": section, "section_label": section_label,
+                    "id": int(item_id),
+                    "title": str((old or {}).get("title") or (old or {}).get("name") or "")[:100]})
         c.commit(); cur.close(); c.close()
         return ok({"ok": True})
 
+    c.close()
     return err(405, "Method not allowed")

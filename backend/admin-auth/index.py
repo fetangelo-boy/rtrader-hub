@@ -126,6 +126,10 @@ def handler(event: dict, context) -> dict:
             f"INSERT INTO {SCHEMA}.admin_sessions (token, username) VALUES (%s, %s)",
             (token, username)
         )
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.admin_activity_log (username, action, details) VALUES (%s, %s, %s)",
+            (username, "login", json.dumps({}))
+        )
         conn.commit()
         cur.close()
 

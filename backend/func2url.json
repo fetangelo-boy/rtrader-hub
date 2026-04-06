@@ -1,4 +1,5 @@
 {
+  "admin-log": "https://functions.poehali.dev/b7d41118-f036-4353-9124-c42eb2513380",
   "tg-messages": "https://functions.poehali.dev/646d692d-5638-429a-9fbd-58cc62309ad6",
   "tg-webhook": "https://functions.poehali.dev/5d707eed-bbd7-44db-8d96-ce8b0ecdfdda",
   "upload-image": "https://functions.poehali.dev/b53b7edb-1a17-424c-8ad3-25cc3b256dd0",

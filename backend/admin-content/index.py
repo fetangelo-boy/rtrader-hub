@@ -23,38 +23,47 @@ def get_connection():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
-def check_token(event: dict) -> bool:
-    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
-    if not token:
-        return False
-    conn = get_connection()
+def get_username(conn, token: str) -> str:
     cur = conn.cursor()
     cur.execute(
-        f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token = %s AND expires_at > NOW()",
+        f"SELECT username FROM {SCHEMA}.admin_sessions WHERE token = %s AND expires_at > NOW()",
         (token,)
     )
     row = cur.fetchone()
     cur.close()
-    conn.close()
-    return row is not None
+    return row[0] if row else ""
+
+
+def log_action(conn, username: str, action: str, details: dict):
+    cur = conn.cursor()
+    cur.execute(
+        f"INSERT INTO {SCHEMA}.admin_activity_log (username, action, details) VALUES (%s, %s, %s)",
+        (username, action, json.dumps(details, ensure_ascii=False))
+    )
+    cur.close()
 
 
 def handler(event: dict, context) -> dict:
+    """Управление текстовым контентом сайта: чтение и обновление."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
-    if not check_token(event):
-        return {
-            "statusCode": 401,
-            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
-            "body": json.dumps({"error": "Unauthorized"}),
-        }
+    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
+    if not token:
+        return {"statusCode": 401, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"error": "Unauthorized"})}
+
+    conn = get_connection()
+    username = get_username(conn, token)
+    if not username:
+        conn.close()
+        return {"statusCode": 401, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"error": "Unauthorized"})}
 
     method = event.get("httpMethod", "GET")
     params = event.get("queryStringParameters") or {}
 
     if method == "GET":
-        conn = get_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         section = params.get("section")
         if section:
@@ -84,13 +93,22 @@ def handler(event: dict, context) -> dict:
         value = body.get("value", "")
 
         if not section or not key:
+            conn.close()
             return {
                 "statusCode": 400,
                 "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
                 "body": json.dumps({"error": "section и key обязательны"}),
             }
 
-        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            f"SELECT value FROM {SCHEMA}.site_content WHERE section = %s AND key = %s",
+            (section, key)
+        )
+        old_row = cur.fetchone()
+        old_value = old_row["value"] if old_row else ""
+        cur.close()
+
         cur = conn.cursor()
         cur.execute(
             f"UPDATE {SCHEMA}.site_content SET value = %s, updated_at = NOW() "
@@ -98,17 +116,22 @@ def handler(event: dict, context) -> dict:
             (str(value), section, key),
         )
         if cur.rowcount == 0:
+            cur.close()
             conn.close()
             return {
                 "statusCode": 404,
                 "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
                 "body": json.dumps({"error": "Запись не найдена"}),
             }
+        log_action(conn, username, "content_update",
+                   {"section": section, "key": key,
+                    "old_value": str(old_value)[:200], "new_value": str(value)[:200]})
         conn.commit()
         cur.close()
         conn.close()
         return {"statusCode": 200, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
                 "body": json.dumps({"ok": True})}
 
+    conn.close()
     return {"statusCode": 405, "headers": CORS_HEADERS,
             "body": json.dumps({"error": "Method not allowed"})}

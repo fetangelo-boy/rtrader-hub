@@ -10,6 +10,7 @@ import CmsAnalytics from "./cms/CmsAnalytics";
 import CmsEducation from "./cms/CmsEducation";
 import CmsTournaments from "./cms/CmsTournaments";
 import CmsAuthor from "./cms/CmsAuthor";
+import AdminActivityLog from "./AdminActivityLog";
 
 export default function Admin() {
   const { isAuthed, login, logout, loading, error } = useAdminAuth();
@@ -29,6 +30,7 @@ export default function Admin() {
         <Route path="cms/education" element={<CmsEducation />} />
         <Route path="cms/tournaments" element={<CmsTournaments />} />
         <Route path="cms/author" element={<CmsAuthor />} />
+        <Route path="log" element={<AdminActivityLog />} />
       </Routes>
     </AdminLayout>
   );

@@ -11,6 +11,7 @@ const NAV = [
   { href: "/rt-manage", label: "Обзор", icon: "LayoutDashboard" },
   { href: "/rt-manage/reviews", label: "Отзывы", icon: "MessageSquare" },
   { href: "/rt-manage/content", label: "Тексты сайта", icon: "FileText" },
+  { href: "/rt-manage/log", label: "Журнал", icon: "Activity" },
 ];
 
 const NAV_CMS = [
