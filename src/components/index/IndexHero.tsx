@@ -22,19 +22,24 @@ const MINI_STATS = [
 ];
 
 function MiniDashboard({ quotes }: { quotes: Quote[] }) {
-  const main = quotes[0]; // BTC как главный инструмент
-  const list = quotes.slice(0, 4);
+  // IMOEX — первым если есть, иначе первый из списка
+  const imoex = quotes.find(q => q.name === "IMOEX");
+  const main = imoex || quotes[0];
+  // Акции МосБиржи для списка (исключаем IMOEX)
+  const moexStocks = quotes.filter(q => q.name !== "IMOEX" && (q as Quote & { source?: string }).source === "moex");
+  const list = moexStocks.length > 0 ? moexStocks.slice(0, 4) : quotes.slice(0, 4);
+  const color = main?.up !== false ? "#9B30FF" : "#FF2D78";
 
   return (
-    <div className="hidden lg:flex flex-col gap-3 w-72 xl:w-80 flex-shrink-0">
-      {/* Главный инструмент */}
-      <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-3">
+    <div className="hidden lg:flex flex-col gap-3 w-64 xl:w-72 flex-shrink-0">
+      {/* Главный инструмент — IMOEX */}
+      <div style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, backdropFilter: "blur(16px)", padding: "14px 16px" }}>
+        <div className="flex items-center justify-between mb-2">
           <div>
-            <div className="text-xs text-white/40 uppercase tracking-widest font-semibold">
-              {main ? main.name : "BTC/USD"}
+            <div className="text-[10px] text-white/35 uppercase tracking-widest font-semibold">
+              {main ? main.name : "IMOEX"}
             </div>
-            <div className="font-russo text-white text-xl">
+            <div className="font-russo text-white text-lg leading-tight">
               {main ? main.price : "—"}
             </div>
           </div>
@@ -44,62 +49,59 @@ function MiniDashboard({ quotes }: { quotes: Quote[] }) {
             </span>
           )}
         </div>
-        <div className="w-full h-14">
-          <svg viewBox="0 0 200 48" className="w-full h-full" preserveAspectRatio="none">
+        <div className="w-full h-10">
+          <svg viewBox="0 0 200 40" className="w-full h-full" preserveAspectRatio="none">
             <defs>
               <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={main?.up !== false ? "#9B30FF" : "#FF2D78"} stopOpacity="0.4" />
-                <stop offset="100%" stopColor={main?.up !== false ? "#9B30FF" : "#FF2D78"} stopOpacity="0" />
+                <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                <stop offset="100%" stopColor={color} stopOpacity="0" />
               </linearGradient>
             </defs>
-            <polygon
-              points="0,48 0,36 20,28 40,32 60,20 80,24 100,14 120,16 140,8 160,10 180,4 200,6 200,48"
-              fill="url(#chartGrad)"
-            />
-            <polyline
-              points="0,36 20,28 40,32 60,20 80,24 100,14 120,16 140,8 160,10 180,4 200,6"
-              fill="none"
-              stroke={main?.up !== false ? "#9B30FF" : "#FF2D78"}
-              strokeWidth="1.5" strokeLinecap="round"
-            />
+            <polygon points="0,40 0,30 20,22 40,26 60,16 80,20 100,10 120,12 140,6 160,8 180,3 200,5 200,40" fill="url(#chartGrad)" />
+            <polyline points="0,30 20,22 40,26 60,16 80,20 100,10 120,12 140,6 160,8 180,3 200,5"
+              fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-xs text-white/25">крипто · реальное время</span>
+          <span className="text-[10px] text-white/20">Индекс МосБиржи</span>
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse" />
         </div>
       </div>
 
       {/* Статистика */}
-      <div className="glass-card p-4 grid grid-cols-3 gap-3">
-        {MINI_STATS.map((item) => (
-          <div key={item.label} className="flex flex-col items-center gap-1 text-center">
-            <Icon name={item.icon} size={14} style={{ color: item.color }} />
-            <div className="font-russo text-white text-base leading-none">{item.val}</div>
-            <div className="text-white/30 text-xs">{item.label}</div>
-          </div>
-        ))}
+      <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 14, backdropFilter: "blur(16px)", padding: "12px 16px" }}>
+        <div className="grid grid-cols-3 gap-2">
+          {MINI_STATS.map((item) => (
+            <div key={item.label} className="flex flex-col items-center gap-1 text-center">
+              <Icon name={item.icon} size={13} style={{ color: item.color }} />
+              <div className="font-russo text-white text-sm leading-none">{item.val}</div>
+              <div className="text-white/25 text-[10px]">{item.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Список котировок */}
-      <div className="glass-card p-3 space-y-2">
+      {/* Список акций */}
+      <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 14, backdropFilter: "blur(16px)", padding: "10px 14px" }}>
+        <div className="space-y-2">
         {list.length > 0 ? list.map((t) => (
           <div key={t.name} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-russo text-white/60 w-20 truncate">{t.name}</span>
+              <span className="text-[11px] font-russo text-white/50 w-14 truncate">{t.name}</span>
               <Sparkline color={t.up ? "#4ade80" : "#f87171"} up={t.up} />
             </div>
-            <span className={`text-xs font-bold ${t.up ? "text-green-400" : "text-red-400"}`}>{t.change}</span>
+            <span className={`text-[11px] font-bold ${t.up ? "text-green-400" : "text-red-400"}`}>{t.change}</span>
           </div>
         )) : TICKER_ITEMS.slice(0, 4).map((t) => (
           <div key={t.name} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-russo text-white/60 w-20">{t.name}</span>
+              <span className="text-[11px] font-russo text-white/50 w-14">{t.name}</span>
               <Sparkline color={t.up ? "#4ade80" : "#f87171"} up={t.up} />
             </div>
-            <span className={`text-xs font-bold ${t.up ? "text-green-400" : "text-red-400"}`}>{t.change}</span>
+            <span className={`text-[11px] font-bold ${t.up ? "text-green-400" : "text-red-400"}`}>{t.change}</span>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
