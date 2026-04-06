@@ -21,75 +21,82 @@ const MINI_STATS = [
   { val: "200+", icon: "FileText", label: "материалов", color: "#FFD700" },
 ];
 
-// Неоновые цвета для тикеров акций
-const TICKER_COLORS = ["#00E5FF", "#FFD700", "#9B30FF", "#FF8C00"];
+// Цвета тикеров: GAZP=cyan, LKOH=red, NVTK=purple, SBER=emerald
+const TICKER_NEON: Record<string, string> = {
+  GAZP: "#00E5FF",
+  LKOH: "#FF2D78",
+  NVTK: "#9B30FF",
+  SBER: "#00FFB2",
+};
+const TICKER_NEON_FALLBACK = ["#00E5FF", "#FF2D78", "#9B30FF", "#00FFB2"];
 
 function MiniDashboard({ quotes }: { quotes: Quote[] }) {
   const imoex = quotes.find(q => q.name === "IMOEX");
-  const main = imoex || quotes[0];
   const moexStocks = quotes.filter(q => q.name !== "IMOEX" && (q as Quote & { source?: string }).source === "moex");
-  const list = moexStocks.length > 0 ? moexStocks.slice(0, 4) : quotes.slice(0, 4);
+  const list = moexStocks.length > 0 ? moexStocks.slice(0, 4) : quotes.filter(q => q.name !== "IMOEX").slice(0, 4);
 
   return (
     <div className="hidden lg:flex flex-col gap-3 w-80 xl:w-96 flex-shrink-0">
 
-      {/* Индекс МосБиржи */}
-      <div style={{ padding: "16px 20px" }}>
+      {/* Индекс МосБиржи — всегда показываем блок, даже если нет данных */}
+      <div style={{ padding: "14px 20px" }}>
         <div className="text-[10px] uppercase tracking-[0.2em] font-bold mb-1"
-          style={{ color: "rgba(255,215,0,0.5)" }}>
+          style={{ color: "rgba(255,215,0,0.45)" }}>
           Индекс МосБиржи · IMOEX
         </div>
         <div className="flex items-end justify-between">
-          <div className="font-russo text-3xl leading-none"
-            style={{ color: "#FFD700", textShadow: "0 0 20px rgba(255,215,0,0.4)" }}>
-            {main ? main.price : "—"}
+          <div className="font-russo text-2xl leading-none"
+            style={{ color: "#FFD700", textShadow: "0 0 18px rgba(255,215,0,0.4)" }}>
+            {imoex ? imoex.price : "—"}
           </div>
-          {main && (
-            <span className={`text-base font-black ${main.up ? "text-green-400" : "text-red-400"}`}
-              style={{ textShadow: main.up ? "0 0 12px rgba(74,222,128,0.6)" : "0 0 12px rgba(248,113,113,0.6)" }}>
-              {main.change}
+          {imoex ? (
+            <span className={`text-sm font-black ${imoex.up ? "text-green-400" : "text-red-400"}`}
+              style={{ textShadow: imoex.up ? "0 0 10px rgba(74,222,128,0.6)" : "0 0 10px rgba(248,113,113,0.6)" }}>
+              {imoex.change}
             </span>
+          ) : (
+            <span className="text-xs" style={{ color: "rgba(255,215,0,0.25)" }}>биржа закрыта</span>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse" />
-          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.3)" }}>МосБиржа · задержка 15 мин</span>
+          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.25)" }}>МосБиржа · задержка 15 мин</span>
         </div>
       </div>
 
       {/* Статистика */}
-      <div style={{ padding: "10px 20px" }}>
+      <div style={{ padding: "8px 20px" }}>
         <div className="grid grid-cols-3 gap-3">
           {MINI_STATS.map((item) => (
             <div key={item.label} className="flex flex-col items-center gap-1 text-center">
-              <Icon name={item.icon} size={14} style={{ color: item.color, filter: `drop-shadow(0 0 6px ${item.color}88)` }} />
-              <div className="font-russo text-base leading-none"
-                style={{ color: "#FFD700", textShadow: "0 0 10px rgba(255,215,0,0.3)" }}>
+              <Icon name={item.icon} size={13} style={{ color: item.color, filter: `drop-shadow(0 0 5px ${item.color}88)` }} />
+              <div className="font-russo text-sm leading-none"
+                style={{ color: "#FFD700", textShadow: "0 0 8px rgba(255,215,0,0.3)" }}>
                 {item.val}
               </div>
-              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{item.label}</div>
+              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{item.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Список акций */}
-      <div style={{ padding: "8px 20px" }}>
-        <div className="space-y-3">
+      <div style={{ padding: "6px 20px" }}>
+        <div className="space-y-2.5">
           {(list.length > 0 ? list : TICKER_ITEMS.slice(0, 4)).map((t, i) => {
-            const neon = TICKER_COLORS[i % TICKER_COLORS.length];
+            const neon = TICKER_NEON[t.name] ?? TICKER_NEON_FALLBACK[i % TICKER_NEON_FALLBACK.length];
             return (
               <div key={t.name} className="flex items-center justify-between">
-                <span className="text-sm font-russo font-bold w-16"
-                  style={{ color: neon, textShadow: `0 0 10px ${neon}88` }}>
+                <span className="text-xs font-russo font-bold w-14"
+                  style={{ color: neon, textShadow: `0 0 8px ${neon}99` }}>
                   {t.name}
                 </span>
-                <span className="text-sm flex-1 text-center"
-                  style={{ color: "rgba(255,215,0,0.6)" }}>
+                <span className="text-xs font-semibold flex-1 text-center"
+                  style={{ color: "rgba(255,215,0,0.55)" }}>
                   {t.price}
                 </span>
-                <span className={`text-sm font-bold ${t.up ? "text-green-400" : "text-red-400"}`}
-                  style={{ textShadow: t.up ? "0 0 8px rgba(74,222,128,0.5)" : "0 0 8px rgba(248,113,113,0.5)" }}>
+                <span className={`text-xs font-bold ${t.up ? "text-green-400" : "text-red-400"}`}
+                  style={{ textShadow: t.up ? "0 0 7px rgba(74,222,128,0.5)" : "0 0 7px rgba(248,113,113,0.5)" }}>
                   {t.change}
                 </span>
               </div>
