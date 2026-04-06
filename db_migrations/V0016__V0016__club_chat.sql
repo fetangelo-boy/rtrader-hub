@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS club_chat (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    channel TEXT NOT NULL,
+    text TEXT NOT NULL,
+    is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)

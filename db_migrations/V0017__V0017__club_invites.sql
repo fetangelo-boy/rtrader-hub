@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS club_invites (
+    id SERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    days INTEGER NOT NULL DEFAULT 30,
+    is_used BOOLEAN NOT NULL DEFAULT FALSE,
+    used_by_user_id INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)

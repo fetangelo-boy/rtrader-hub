@@ -1,0 +1,151 @@
+import { useState } from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import Icon from "@/components/ui/icon";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+export default function Register() {
+  const { register } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const [form, setForm] = useState({
+    nickname: "",
+    email: "",
+    password: "",
+    gdpr_consent: false,
+    invite_code: searchParams.get("invite") || "",
+  });
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (field: string, value: string | boolean) =>
+    setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!form.gdpr_consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
+    setLoading(true);
+    try {
+      await register(form);
+      navigate("/login");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ошибка регистрации");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 mb-4">
+            <Icon name="TrendingUp" size={24} className="text-primary" />
+          </div>
+          <h1 className="font-display text-xl tracking-widest text-foreground uppercase mb-1">RTrading CLUB</h1>
+          <p className="text-sm text-muted-foreground">Закрытый трейдинг-клуб</p>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-foreground mb-5">Регистрация</h2>
+
+          {error && (
+            <div className="mb-4 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive flex items-center gap-2">
+              <Icon name="AlertCircle" size={14} />
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="nickname">Никнейм</Label>
+              <Input
+                id="nickname"
+                type="text"
+                value={form.nickname}
+                onChange={(e) => set("nickname", e.target.value)}
+                placeholder="Введите никнейм"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                placeholder="Введите email"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Пароль</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPass ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  placeholder="Минимум 6 символов"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <Icon name={showPass ? "EyeOff" : "Eye"} size={16} />
+                </button>
+              </div>
+            </div>
+
+            {form.invite_code && (
+              <div>
+                <Label htmlFor="invite_code">Код приглашения</Label>
+                <Input
+                  id="invite_code"
+                  type="text"
+                  value={form.invite_code}
+                  disabled
+                  className="opacity-60"
+                />
+              </div>
+            )}
+
+            <div className="flex items-start gap-2">
+              <input
+                id="gdpr"
+                type="checkbox"
+                checked={form.gdpr_consent}
+                onChange={(e) => set("gdpr_consent", e.target.checked)}
+                className="mt-0.5 accent-primary"
+              />
+              <label htmlFor="gdpr" className="text-xs text-muted-foreground cursor-pointer">
+                Я согласен на обработку персональных данных и с условиями использования
+              </label>
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? "Регистрация..." : "Зарегистрироваться"}
+            </Button>
+          </form>
+
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            Уже есть аккаунт?{" "}
+            <Link to="/login" className="text-primary hover:underline">
+              Войти
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
