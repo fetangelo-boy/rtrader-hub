@@ -1,4 +1,6 @@
 {
+  "admin-stats": "https://functions.poehali.dev/64fbccd2-24e4-4d11-a82f-6979d079f8da",
+  "admin-pricing": "https://functions.poehali.dev/f1af2aee-00cd-4898-adbb-6e82f4c1f10e",
   "quotes": "https://functions.poehali.dev/8aa86429-4cf8-4a5f-bad6-95cdb8bcfc85",
   "auth": "https://functions.poehali.dev/ae3bd284-8ae4-4f3e-9c34-1eb7f36477ed",
   "subscriptions": "https://functions.poehali.dev/b4dcce4e-7c15-4eb7-b40e-1fb43f89083e",
