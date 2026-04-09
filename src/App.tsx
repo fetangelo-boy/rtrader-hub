@@ -18,6 +18,7 @@ import PublicCommunity from "./pages/PublicCommunity";
 
 import ClubIndex from "./pages/ClubIndex";
 import AdminPanel from "./pages/admin/Admin";
+import EditorPanel from "./pages/editor/Editor";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import RestorePassword from "./pages/RestorePassword";
@@ -90,6 +91,9 @@ function AppRoutes() {
 
       {/* Панель управления порталом */}
       <Route path="/rt-manage/*" element={<AdminPanel />} />
+
+      {/* Редактор контента */}
+      <Route path="/editor/*" element={<EditorPanel />} />
 
       {/* Авторизация */}
       <Route path="/login" element={<LoginRoute><Login /></LoginRoute>} />

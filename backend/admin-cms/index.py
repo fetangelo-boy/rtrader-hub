@@ -19,7 +19,7 @@ import psycopg2.extras
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Token",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Token, X-Auth-Token",
 }
 SCHEMA = "t_p67093308_rtrader_hub"
 
@@ -58,7 +58,7 @@ def get_username(c, token: str) -> str:
     cur.execute(
         f"SELECT u.nickname FROM {SCHEMA}.club_sessions s "
         f"JOIN {SCHEMA}.club_users u ON u.id = s.user_id "
-        f"WHERE s.token=%s AND s.expires_at>NOW() AND u.role IN ('owner','admin')",
+        f"WHERE s.token=%s AND s.expires_at>NOW() AND u.role IN ('owner','admin','editor')",
         (token,)
     )
     row = cur.fetchone()
@@ -100,7 +100,8 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
-    token = (event.get("headers") or {}).get("X-Admin-Token", "").strip()
+    hdrs = event.get("headers") or {}
+    token = hdrs.get("X-Admin-Token", "").strip() or hdrs.get("X-Auth-Token", "").strip()
     if not token:
         return err(401, "Unauthorized")
 

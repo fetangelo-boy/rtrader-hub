@@ -50,10 +50,10 @@ export default function ClubIndex() {
         <div className="flex items-center gap-2">
           <a
             href="/"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border border-[#FFD700]/40 text-[#FFD700] bg-[#FFD700]/5 hover:bg-[#FFD700]/15 hover:border-[#FFD700]/70 hover:shadow-[0_0_10px_rgba(255,215,0,0.25)] transition-all duration-200 tracking-wide uppercase"
+            className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg border border-[#FFD700]/40 text-[#FFD700] bg-[#FFD700]/5 hover:bg-[#FFD700]/15 hover:border-[#FFD700]/70 hover:shadow-[0_0_10px_rgba(255,215,0,0.25)] transition-all duration-200 tracking-wide uppercase"
           >
             <Icon name="ArrowLeft" size={12} />
-            На RTRADER
+            <span className="hidden sm:inline">На сайт</span>
           </a>
           {subscription?.status === "active" && (
             <span className="hidden sm:flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">

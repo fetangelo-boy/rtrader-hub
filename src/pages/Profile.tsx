@@ -113,6 +113,14 @@ export default function Profile() {
             </div>
           </div>
 
+          {user?.role === "editor" && (
+            <a href="/editor" className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all">
+              <Icon name="PenLine" size={15} />
+              <span className="font-medium">Панель редактора</span>
+              <Icon name="ArrowRight" size={13} className="ml-auto" />
+            </a>
+          )}
+
           {subscription && (
             <div className={cn("rounded-lg px-4 py-3 flex items-center justify-between text-sm",
               subscription.status === "active" ? "bg-green/10 border border-green/20" : "bg-muted border border-border"
