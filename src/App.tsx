@@ -27,6 +27,7 @@ import NoAccess from "./pages/NoAccess";
 import ClubAdmin from "./pages/ClubAdmin";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
+import SectionRoute from "./components/SectionRoute";
 
 const queryClient = new QueryClient();
 
@@ -74,14 +75,14 @@ function AppRoutes() {
     <Routes>
       {/* Портал — публичный */}
       <Route path="/" element={<Index />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="/reflections" element={<Reflections />} />
-      <Route path="/reflections/:id" element={<ReflectionArticle />} />
-      <Route path="/tournaments" element={<Tournaments />} />
-      <Route path="/education" element={<Education />} />
-      <Route path="/reviews" element={<Reviews />} />
-      <Route path="/vip" element={<Vip />} />
-      <Route path="/community" element={<PublicCommunity />} />
+      <Route path="/analytics" element={<SectionRoute sectionKey="analytics"><Analytics /></SectionRoute>} />
+      <Route path="/reflections" element={<SectionRoute sectionKey="reflections"><Reflections /></SectionRoute>} />
+      <Route path="/reflections/:id" element={<SectionRoute sectionKey="reflections"><ReflectionArticle /></SectionRoute>} />
+      <Route path="/tournaments" element={<SectionRoute sectionKey="tournaments"><Tournaments /></SectionRoute>} />
+      <Route path="/education" element={<SectionRoute sectionKey="education"><Education /></SectionRoute>} />
+      <Route path="/reviews" element={<SectionRoute sectionKey="reviews"><Reviews /></SectionRoute>} />
+      <Route path="/vip" element={<SectionRoute sectionKey="vip"><Vip /></SectionRoute>} />
+      <Route path="/community" element={<SectionRoute sectionKey="community"><PublicCommunity /></SectionRoute>} />
 
       {/* VIP-клуб */}
       <Route path="/club" element={<ClubRoute><ClubIndex /></ClubRoute>} />
