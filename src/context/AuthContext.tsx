@@ -1,3 +1,7 @@
+// ВАЖНО — НЕ МЕНЯТЬ без явного запроса владельца:
+// 1. Вход работает по email ИЛИ по никнейму для всех пользователей.
+// 2. Токен из localStorage удаляется ТОЛЬКО если сервер явно вернул ответ без user (токен невалиден).
+//    При сетевых ошибках (fetch упал) токен НЕ удаляется — иначе билды и перезапуски выбивают пользователей из сессии.
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import func2url from "../../backend/func2url.json";
 
