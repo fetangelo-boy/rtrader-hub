@@ -67,11 +67,12 @@ export default function Community() {
         {/* Channels sidebar */}
         <aside
           className={cn(
-            "w-60 shrink-0 border-r border-white/5 bg-black/20 flex flex-col",
+            "w-60 shrink-0 border-r border-white/5 bg-black/20 flex flex-col overflow-y-auto",
             "lg:relative lg:translate-x-0 lg:z-auto",
-            "fixed inset-y-0 left-0 z-30 top-14 transition-transform duration-200",
+            "fixed left-0 z-30 transition-transform duration-200",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
+          style={{ top: "calc(48px + 40px)", bottom: 0 }}
         >
           <div className="px-4 py-3 border-b border-white/5">
             <p className="text-xs text-white/30 font-medium uppercase tracking-widest">Каналы</p>
