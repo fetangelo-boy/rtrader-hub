@@ -15,6 +15,15 @@ interface ChatMessage {
   created_at: string;
   nickname: string;
   role: string;
+  reply_to_id?: number | null;
+  reply_to_nickname?: string | null;
+  reply_to_text?: string | null;
+}
+
+interface ReplyTo {
+  id: number;
+  nickname: string;
+  text: string;
 }
 
 export function ChatSection({ sectionId, title, readonly = false }: { sectionId: string; title: string; readonly?: boolean }) {
@@ -24,6 +33,8 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -90,7 +101,7 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
       const res = await fetch(`${CHAT_URL}?action=send`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Auth-Token": token || "" },
-        body: JSON.stringify({ channel: sectionId, text: msg.trim() }),
+        body: JSON.stringify({ channel: sectionId, text: msg.trim(), reply_to_id: replyTo?.id ?? null }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -98,6 +109,7 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
         return;
       }
       setMsg("");
+      setReplyTo(null);
       await fetchMessages();
     } catch {
       setError("Ошибка отправки");
@@ -162,7 +174,12 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
               <div className="flex-1 h-px bg-border" />
             </div>
             {msgs.map(m => (
-              <div key={m.id} className="flex items-start gap-2 py-1 group hover:bg-muted/30 rounded px-1 -mx-1">
+              <div
+                key={m.id}
+                className="flex items-start gap-2 py-1 group hover:bg-muted/30 rounded px-1 -mx-1"
+                onMouseEnter={() => setHoveredId(m.id)}
+                onMouseLeave={() => setHoveredId(null)}
+              >
                 <UserAvatar name={m.nickname} role={m.role} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
@@ -170,16 +187,36 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
                     <RoleBadge role={m.role} />
                     <span className="text-[10px] text-muted-foreground">{formatTime(m.created_at)}</span>
                   </div>
+                  {m.reply_to_id && m.reply_to_nickname && (
+                    <div className="flex gap-1.5 mb-1 px-2 py-1 rounded bg-muted/50 border-l-2 border-primary/40 max-w-xs">
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-primary/70 font-semibold">{m.reply_to_nickname}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{m.reply_to_text}</p>
+                      </div>
+                    </div>
+                  )}
                   <p className="text-sm text-foreground/90 break-words whitespace-pre-wrap">{m.text}</p>
                 </div>
-                {(user?.role === "owner" || user?.role === "admin") && (
-                  <button
-                    onClick={() => handleDelete(m.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
-                  >
-                    <Icon name="Trash2" size={12} />
-                  </button>
-                )}
+                <div className={`flex gap-0.5 transition-opacity ${hoveredId === m.id ? "opacity-100" : "opacity-0"}`}>
+                  {canWrite && (
+                    <button
+                      onClick={() => setReplyTo({ id: m.id, nickname: m.nickname, text: m.text })}
+                      className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                      title="Ответить"
+                    >
+                      <Icon name="Reply" size={12} />
+                    </button>
+                  )}
+                  {(user?.role === "owner" || user?.role === "admin") && (
+                    <button
+                      onClick={() => handleDelete(m.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                      title="Удалить"
+                    >
+                      <Icon name="Trash2" size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -189,13 +226,31 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
 
       {canWrite && (
         <div className="p-3 border-t border-border">
+          {replyTo && (
+            <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded bg-primary/5 border border-primary/20">
+              <div className="w-0.5 h-6 bg-primary/50 rounded-full shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-primary font-semibold">{replyTo.nickname}</p>
+                <p className="text-xs text-muted-foreground truncate">{replyTo.text}</p>
+              </div>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Icon name="X" size={13} />
+              </button>
+            </div>
+          )}
           {error && <p className="text-xs text-destructive mb-1">{error}</p>}
           <div className="flex items-end gap-2">
             <textarea
               value={msg}
               onChange={e => setMsg(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              placeholder="Написать сообщение..."
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                if (e.key === "Escape") setReplyTo(null);
+              }}
+              placeholder={replyTo ? `Ответить ${replyTo.nickname}...` : "Написать сообщение..."}
               rows={1}
               className="flex-1 bg-input border border-border rounded px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
             />
