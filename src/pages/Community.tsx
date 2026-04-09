@@ -30,7 +30,7 @@ export default function Community() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[hsl(var(--background))] text-white overflow-hidden">
+    <div className="flex flex-col bg-[hsl(var(--background))] text-white overflow-hidden" style={{height: "100dvh"}}>
       <HubNav />
       {/* OLD Top bar — для отката раскомментируй и убери HubNav */}
       <header className="mt-11 h-10 shrink-0 flex items-center gap-3 px-4 border-b border-white/5 bg-black/30 backdrop-blur-sm">

@@ -310,10 +310,10 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
             <span className="font-russo text-lg tracking-wider hidden sm:block">R<span className="brand-gradient">TRADER</span></span>
           </button>
 
-          <div className="hidden 2xl:flex items-center gap-4 flex-1 justify-center">
+          <div className="hidden md:flex items-center gap-1 flex-1 justify-center overflow-x-auto scrollbar-none">
             {NAV_ITEMS.map((item) => (
               <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
-                className="nav-link text-xs whitespace-nowrap">{item.label}</button>
+                className="nav-link text-xs whitespace-nowrap px-2.5 py-1 rounded-lg hover:bg-white/5 transition-all">{item.label}</button>
             ))}
           </div>
 
@@ -337,7 +337,7 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
               <Icon name="Crown" size={13} />
               <span className="hidden sm:inline">VIP</span>
             </Link>
-            <button className="2xl:hidden p-1.5 text-white/70 hover:text-white ml-1" onClick={() => setMenuOpen(!menuOpen)}>
+            <button className="md:hidden p-1.5 text-white/70 hover:text-white ml-1" onClick={() => setMenuOpen(!menuOpen)}>
               <Icon name={menuOpen ? "X" : "Menu"} size={22} />
             </button>
           </div>
