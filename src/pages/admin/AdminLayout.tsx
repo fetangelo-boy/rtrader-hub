@@ -9,6 +9,7 @@ interface Props {
 
 const NAV = [
   { href: "/rt-manage", label: "Обзор", icon: "LayoutDashboard" },
+  { href: "/rt-manage/subscriptions", label: "Подписчики", icon: "Users" },
   { href: "/rt-manage/reviews", label: "Отзывы", icon: "MessageSquare" },
   { href: "/rt-manage/content", label: "Тексты сайта", icon: "FileText" },
   { href: "/rt-manage/log", label: "Журнал", icon: "Activity" },
