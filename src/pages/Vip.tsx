@@ -30,15 +30,13 @@ export default function Vip() {
           <h1 className="font-russo text-3xl md:text-4xl text-white mb-4">{vipData.title}</h1>
           <p className="text-white/50 text-base max-w-xl mx-auto leading-relaxed">{vipData.description}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
-            <a
-              href={vipData.vipUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              to={vipData.vipUrl}
               className="neon-btn px-8 py-3 text-sm font-bold"
               style={{ background: "linear-gradient(135deg, #FF2D78, #9B30FF)" }}
             >
               Вступить в VIP-клуб
-            </a>
+            </Link>
             <a
               href={TG_URL}
               target="_blank"
@@ -108,15 +106,13 @@ export default function Vip() {
         >
           <h2 className="font-russo text-2xl text-white mb-3">Готов торговать на новом уровне?</h2>
           <p className="text-white/50 text-sm mb-6">Ограниченное количество мест в VIP-клубе.</p>
-          <a
-            href={vipData.vipUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to={vipData.vipUrl}
             className="neon-btn px-10 py-3 text-sm font-bold inline-block"
             style={{ background: "linear-gradient(135deg, #FF2D78, #9B30FF)" }}
           >
             Вступить в VIP-клуб
-          </a>
+          </Link>
         </div>
       </div>
     </div>

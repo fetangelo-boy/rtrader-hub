@@ -4,7 +4,7 @@ export const vipData = {
   description:
     "Эксклюзивный доступ к закрытым торговым сигналам, разборам портфеля в реальном времени и прямым консультациям с автором.",
 
-  vipUrl: "https://web-app-hosting--preview.poehali.dev/login",
+  vipUrl: "/register",
 
   benefits: [
     {
