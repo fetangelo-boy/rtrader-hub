@@ -9,8 +9,6 @@
   "chat": "https://functions.poehali.dev/d4285e14-f02c-4607-9a3f-4215f1bf054d",
   "admin": "https://functions.poehali.dev/58c8224f-b1da-4e1a-9c7a-09bf808c3c47",
   "admin-log": "https://functions.poehali.dev/b7d41118-f036-4353-9124-c42eb2513380",
-  "tg-messages": "https://functions.poehali.dev/646d692d-5638-429a-9fbd-58cc62309ad6",
-  "tg-webhook": "https://functions.poehali.dev/5d707eed-bbd7-44db-8d96-ce8b0ecdfdda",
   "upload-image": "https://functions.poehali.dev/b53b7edb-1a17-424c-8ad3-25cc3b256dd0",
   "public-content": "https://functions.poehali.dev/1177521b-9812-4631-b339-b216a5d91c4e",
   "admin-cms": "https://functions.poehali.dev/0232c19c-b467-4fa1-8e83-0eefe03b467c",
