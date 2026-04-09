@@ -73,13 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(d.user);
           fetchSubscription(token);
         } else {
+          // Токен невалиден на сервере — чистим
           localStorage.removeItem("auth_token");
           setToken(null);
         }
       })
       .catch(() => {
-        localStorage.removeItem("auth_token");
-        setToken(null);
+        // Сетевая ошибка — НЕ удаляем токен, просто продолжаем без авторизации
+        // При следующей загрузке токен будет проверен снова
       })
       .finally(() => setLoading(false));
   }, [token, fetchSubscription]);
