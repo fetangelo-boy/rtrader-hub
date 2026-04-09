@@ -115,7 +115,7 @@ export default function Community() {
                 <MessageList
                   messages={messages}
                   currentUserId={currentUser?.id ?? "me"}
-                  isAdmin={currentUser?.role === "admin"}
+                  isAdmin={currentUser?.role === "admin" || currentUser?.role === "owner"}
                   onDelete={(id) => deleteMessage.mutate(id)}
                   onReply={(r) => setReplyTo(r)}
                 />

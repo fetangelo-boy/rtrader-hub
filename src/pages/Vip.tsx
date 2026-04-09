@@ -3,11 +3,14 @@ import Icon from "@/components/ui/icon";
 import HubNav from "@/components/HubNav";
 import { vipData } from "@/data/vip";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const TG_URL = "https://t.me/RTrader11";
 
 export default function Vip() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { user, hasAccess } = useAuth();
+  const joinUrl = user ? (hasAccess ? "/club" : "/subscribe") : vipData.vipUrl;
 
   return (
     <div className="neon-grid-bg min-h-screen text-white font-montserrat">
@@ -31,11 +34,11 @@ export default function Vip() {
           <p className="text-white/50 text-base max-w-xl mx-auto leading-relaxed">{vipData.description}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
             <Link
-              to={vipData.vipUrl}
+              to={joinUrl}
               className="neon-btn px-8 py-3 text-sm font-bold"
               style={{ background: "linear-gradient(135deg, #FF2D78, #9B30FF)" }}
             >
-              Вступить в VIP-клуб
+              {hasAccess ? "Открыть VIP-клуб" : "Вступить в VIP-клуб"}
             </Link>
             <a
               href={TG_URL}
@@ -107,11 +110,11 @@ export default function Vip() {
           <h2 className="font-russo text-2xl text-white mb-3">Готов торговать на новом уровне?</h2>
           <p className="text-white/50 text-sm mb-6">Ограниченное количество мест в VIP-клубе.</p>
           <Link
-            to={vipData.vipUrl}
+            to={joinUrl}
             className="neon-btn px-10 py-3 text-sm font-bold inline-block"
             style={{ background: "linear-gradient(135deg, #FF2D78, #9B30FF)" }}
           >
-            Вступить в VIP-клуб
+            {hasAccess ? "Открыть VIP-клуб" : "Вступить в VIP-клуб"}
           </Link>
         </div>
       </div>

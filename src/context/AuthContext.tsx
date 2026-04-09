@@ -53,7 +53,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("auth_token"));
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
-  const [subLoading, setSubLoading] = useState(false);
+  // Если токен уже есть — сразу считаем subLoading=true, чтобы не мелькал NoAccess
+  const [subLoading, setSubLoading] = useState(() => !!localStorage.getItem("auth_token"));
 
   const fetchSubscription = useCallback(async (tok: string) => {
     setSubLoading(true);
