@@ -19,8 +19,24 @@
 import json
 import os
 import secrets
+import urllib.request
 from datetime import datetime, timedelta, timezone
 import psycopg2
+
+
+def tg_send(chat_id, text):
+    token = os.environ.get("TELEGRAM_VIP_BOT_TOKEN", "")
+    if not token or not chat_id:
+        return
+    try:
+        data = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=data, headers={"Content-Type": "application/json"}
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -280,6 +296,27 @@ def handler(event: dict, context) -> dict:
                 VALUES (%s, %s, 'grant_access', %s)
             """, (sub_id, user["id"], json.dumps({"plan": plan, "days": days, "expires_at": expires_at.isoformat()})))
             conn.commit()
+
+        # Уведомление в Telegram если привязан
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.telegram_id, u.nickname
+                FROM club_users u WHERE u.id = %s
+            """, (user_id,))
+            tg_row = cur.fetchone()
+
+        if tg_row and tg_row[0]:
+            tg_send(tg_row[0],
+                f"🎉 <b>Подписка активирована!</b>\n\n"
+                f"Привет, <b>{tg_row[1]}</b>!\n"
+                f"Тариф активен до <b>{expires_at.strftime('%d.%m.%Y')}</b>.\n\n"
+                f"Заходи в клуб 👉 rtrader11.ru/club"
+            )
+        else:
+            # Telegram не привязан — напоминаем через бота если есть telegram_id,
+            # иначе просто пропускаем (пользователь увидит подсказку в профиле)
+            pass
+
         return ok({"message": f"Доступ выдан до {expires_at.strftime('%d.%m.%Y')}", "sub_id": sub_id})
 
     if action == "set_expires":

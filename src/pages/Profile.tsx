@@ -163,9 +163,18 @@ export default function Profile() {
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Подключи Telegram, чтобы получать уведомления о подписке прямо в мессенджер.
-              </p>
+              {subscription?.status === "active" ? (
+                <div className="rounded-lg border border-[#29b6f6]/30 bg-[#29b6f6]/5 px-4 py-3">
+                  <p className="text-sm text-[#29b6f6] font-medium mb-1">Подключи Telegram ← важно</p>
+                  <p className="text-xs text-muted-foreground">
+                    Ты получишь уведомление за 3 дня и за 1 день до окончания подписки — чтобы не потерять доступ к клубу.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Подключи Telegram, чтобы получать уведомления о подписке прямо в мессенджер.
+                </p>
+              )}
               <Button onClick={handleConnectTg} disabled={tgLinkLoading} className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white">
                 <Icon name="Send" size={15} className="mr-2" />
                 {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}

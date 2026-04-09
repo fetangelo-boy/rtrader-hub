@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { NAV_ITEMS } from "@/components/trade/data";
 import { TickerBar, RightPanel } from "@/components/trade/Shared";
 import { ChatSection, SubscribeSection } from "@/components/trade/SectionContent";
 import { useAuth } from "@/context/AuthContext";
+import func2url from "../../backend/func2url.json";
+
+const TG_BOT_URL = (func2url as Record<string, string>)["tg-vip-bot"];
 
 function renderSection(active: string) {
   switch (active) {
@@ -23,10 +26,19 @@ function renderSection(active: string) {
 }
 
 export default function ClubIndex() {
-  const { user, logout, subscription } = useAuth();
+  const { user, token, logout, subscription } = useAuth();
   const navigate = useNavigate();
   const [active, setActive] = useState("intraday");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tgLinked, setTgLinked] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!token || subscription?.status !== "active") return;
+    fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token } })
+      .then(r => r.json())
+      .then(d => setTgLinked(d.linked ?? null))
+      .catch(() => {});
+  }, [token, subscription?.status]);
 
   const current = NAV_ITEMS.find(n => n.id === active)!;
 
@@ -142,7 +154,7 @@ export default function ClubIndex() {
             <p className="text-xs text-muted-foreground">{current?.desc}</p>
           </div>
           {subscription?.status === "active" && (
-            <div className="mt-auto">
+            <div className="mt-auto space-y-2">
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs space-y-1">
                 <div className="flex items-center gap-1 text-primary font-medium">
                   <Icon name="Star" size={12} />
@@ -156,6 +168,21 @@ export default function ClubIndex() {
                   })}
                 </p>
               </div>
+
+              {tgLinked === false && (
+                <a
+                  href="/profile"
+                  className="flex items-start gap-2 rounded-lg border border-[#29b6f6]/30 bg-[#29b6f6]/5 p-3 text-xs hover:bg-[#29b6f6]/10 transition-colors group"
+                >
+                  <Icon name="Send" size={13} className="text-[#29b6f6] mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[#29b6f6] font-medium mb-0.5">Привяжи Telegram</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Получай уведомления за 3 дня до окончания подписки
+                    </p>
+                  </div>
+                </a>
+              )}
             </div>
           )}
         </RightPanel>
