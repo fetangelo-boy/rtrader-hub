@@ -24,6 +24,16 @@ def get_connection():
 def get_username(conn, token: str) -> str:
     cur = conn.cursor()
     cur.execute(
+        f"SELECT u.nickname FROM {SCHEMA}.club_sessions s "
+        f"JOIN {SCHEMA}.club_users u ON u.id = s.user_id "
+        f"WHERE s.token=%s AND s.expires_at>NOW() AND u.role IN ('owner','admin')",
+        (token,)
+    )
+    row = cur.fetchone()
+    if row:
+        cur.close()
+        return row[0]
+    cur.execute(
         f"SELECT username FROM {SCHEMA}.admin_sessions WHERE token = %s AND expires_at > NOW()",
         (token,)
     )
