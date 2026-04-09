@@ -25,6 +25,10 @@ interface Subscriber {
   expires_at: string | null; created_at: string | null;
 }
 
+interface HistoryEntry {
+  id: number; action: string; details: Record<string, string>; created_at: string; admin: string;
+}
+
 function headers() {
   return { "Content-Type": "application/json", "X-Auth-Token": getAdminToken() };
 }
@@ -54,9 +58,11 @@ export default function AdminSubscriptions() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState<Subscriber | null>(null);
-  const [modal, setModal] = useState<"grant" | "expires" | "plan" | null>(null);
+  const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // форма
   const [grantPlan, setGrantPlan] = useState("month");
@@ -86,6 +92,17 @@ export default function AdminSubscriptions() {
     setGrantDays(30);
     setNewExpires(sub.expires_at ? sub.expires_at.slice(0, 10) : "");
     setNewPlan(sub.plan || "month");
+  };
+
+  const openHistory = async (sub: Subscriber) => {
+    setSelected(sub);
+    setModal("history");
+    setHistory([]);
+    setHistoryLoading(true);
+    const res = await fetch(`${API}?action=sub_history&user_id=${sub.user_id}`, { headers: headers() });
+    const d = await res.json();
+    setHistory(d.history || []);
+    setHistoryLoading(false);
   };
 
   const closeModal = () => { setModal(null); setSelected(null); };
@@ -230,6 +247,10 @@ export default function AdminSubscriptions() {
 
                 {/* Действия */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button title="История изменений" onClick={() => openHistory(sub)}
+                    className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-white/40 flex items-center justify-center hover:text-white hover:bg-white/10 transition-all">
+                    <Icon name="History" size={13} />
+                  </button>
                   <button title="Выдать/продлить доступ" onClick={() => openModal(sub, "grant")}
                     className="w-8 h-8 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 flex items-center justify-center hover:bg-green-500/20 transition-all">
                     <Icon name="Plus" size={13} />
@@ -262,10 +283,10 @@ export default function AdminSubscriptions() {
       {/* Модал */}
       {modal && selected && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={closeModal}>
-          <div className="glass-card w-full max-w-sm p-6 flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+          <div className={`glass-card w-full p-6 flex flex-col gap-4 ${modal === "history" ? "max-w-lg" : "max-w-sm"}`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-russo text-base text-white">
-                {modal === "grant" ? "Выдать доступ" : modal === "expires" ? "Изменить дату" : "Изменить тариф"}
+                {modal === "grant" ? "Выдать доступ" : modal === "expires" ? "Изменить дату" : modal === "plan" ? "Изменить тариф" : "История изменений"}
               </h3>
               <button onClick={closeModal} className="text-white/30 hover:text-white"><Icon name="X" size={16} /></button>
             </div>
@@ -322,6 +343,48 @@ export default function AdminSubscriptions() {
                   className="neon-btn text-sm py-2.5 disabled:opacity-40">
                   {saving ? "Сохраняю..." : "Изменить тариф"}
                 </button>
+              </div>
+            )}
+
+            {modal === "history" && (
+              <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+                {historyLoading ? (
+                  <div className="flex items-center gap-2 text-white/30 text-sm py-4">
+                    <Icon name="Loader2" size={14} className="animate-spin" /> Загружаю...
+                  </div>
+                ) : history.length === 0 ? (
+                  <div className="text-white/30 text-sm py-4 text-center">Изменений пока нет</div>
+                ) : history.map(h => {
+                  const ACTION_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+                    grant_access: { label: "Выдан доступ",      icon: "Plus",     color: "#22c55e" },
+                    set_expires:  { label: "Изменена дата",     icon: "Calendar", color: "#FFD700" },
+                    deactivate:   { label: "Деактивирован",     icon: "Ban",      color: "#ef4444" },
+                    change_plan:  { label: "Изменён тариф",     icon: "Tag",      color: "#38BDF8" },
+                    approve_payment: { label: "Оплата одобрена", icon: "Check",   color: "#22c55e" },
+                  };
+                  const meta = ACTION_LABELS[h.action] || { label: h.action, icon: "Info", color: "#9ca3af" };
+                  return (
+                    <div key={h.id} className="flex gap-3 p-3 bg-white/3 rounded-xl border border-white/8">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${meta.color}15` }}>
+                        <Icon name={meta.icon} size={13} style={{ color: meta.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-white">{meta.label}</span>
+                          <span className="text-xs text-white/30 flex-shrink-0">{fmtDate(h.created_at)}</span>
+                        </div>
+                        {h.admin && <div className="text-xs text-white/35 mt-0.5">Администратор: {h.admin}</div>}
+                        {h.details && Object.keys(h.details).length > 0 && (
+                          <div className="text-xs text-white/25 mt-1 font-mono">
+                            {Object.entries(h.details).map(([k, v]) => (
+                              <span key={k} className="mr-3">{k}: {String(v)}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

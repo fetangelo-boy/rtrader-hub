@@ -334,5 +334,22 @@ def handler(event: dict, context) -> dict:
             conn.commit()
         return ok({"message": "Тариф изменён"})
 
+    if action == "sub_history":
+        user_id = qs.get("user_id")
+        if not user_id:
+            return err("user_id обязателен")
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT l.id, l.action, l.details, l.created_at, a.nickname as admin_nick
+                FROM club_subscriptions_log l
+                JOIN club_subscriptions s ON l.subscription_id = s.id
+                LEFT JOIN club_users a ON l.admin_id = a.id
+                WHERE s.user_id = %s
+                ORDER BY l.created_at DESC LIMIT 50
+            """, (int(user_id),))
+            rows = cur.fetchall()
+        history = [{"id": r[0], "action": r[1], "details": r[2], "created_at": r[3].isoformat(), "admin": r[4]} for r in rows]
+        return ok({"history": history})
+
     conn.close()
     return err("Неизвестное действие", 400)
