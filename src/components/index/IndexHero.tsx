@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
+import HubNav from "@/components/HubNav";
 import { useQuotes, type Quote } from "@/hooks/useQuotes";
 import {
   NAV_ITEMS, TICKER_ITEMS, STATS, SECTIONS,
@@ -301,71 +302,7 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
   return (
     <>
       {/* NAV */}
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "bg-black/70 backdrop-blur-xl border-b border-white/10" : "bg-transparent"}`}>
-        <div className="max-w-screen-xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-          <button onClick={() => navTo("#hero")} className="flex items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg brand-gradient-bg flex items-center justify-center shadow-lg">
-              <span className="font-russo text-black text-xs font-black">RT</span>
-            </div>
-            <span className="font-russo text-lg tracking-wider hidden sm:block">R<span className="brand-gradient">TRADER</span></span>
-          </button>
-
-          <div className="hidden md:flex items-center gap-1 flex-1 justify-center overflow-x-auto scrollbar-none">
-            {NAV_ITEMS.map((item) => (
-              <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
-                className="nav-link text-xs whitespace-nowrap px-2.5 py-1 rounded-lg hover:bg-white/5 transition-all">{item.label}</button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {getAdminToken() && (
-              <Link to="/rt-manage"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#FFD700]/70 hover:text-[#FFD700] border border-[#FFD700]/20 hover:border-[#FFD700]/40 bg-[#FFD700]/5 hover:bg-[#FFD700]/10 transition-all"
-                title="Панель администратора">
-                <Icon name="Shield" size={13} />
-                <span className="hidden lg:inline">Admin</span>
-              </Link>
-            )}
-            <a href={TG_URL} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-all text-xs"
-              title="Telegram">
-              <Icon name="Send" size={13} />
-              <span className="hidden sm:inline">TG</span>
-            </a>
-            <Link to={VIP_URL}
-              className="neon-btn text-xs px-3 py-1.5 flex items-center gap-1.5 whitespace-nowrap">
-              <Icon name="Crown" size={13} />
-              <span className="hidden sm:inline">VIP</span>
-            </Link>
-            <button className="md:hidden p-1.5 text-white/70 hover:text-white ml-1" onClick={() => setMenuOpen(!menuOpen)}>
-              <Icon name={menuOpen ? "X" : "Menu"} size={22} />
-            </button>
-          </div>
-        </div>
-
-        {menuOpen && (
-          <div className="2xl:hidden bg-black/97 backdrop-blur-xl border-t border-white/10 px-4 py-5">
-            <div className="flex flex-col gap-1 mb-5">
-              {NAV_ITEMS.map((item) => (
-                <button key={item.href} onClick={() => navTo(item.href, item.isRoute)}
-                  className="text-left text-sm text-white/60 hover:text-white py-2.5 px-3 rounded-xl hover:bg-white/5 transition-all border-b border-white/5 last:border-0">
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <a href={TG_URL} target="_blank" rel="noopener noreferrer"
-                className="flex-1 text-center py-2.5 rounded-xl border border-white/15 text-white/60 text-sm hover:text-white hover:border-white/30 transition-all">
-                Telegram
-              </a>
-              <Link to={VIP_URL}
-                className="neon-btn flex-1 text-center text-sm py-2.5">
-                VIP-клуб
-              </Link>
-            </div>
-          </div>
-        )}
-      </nav>
+      <HubNav />
 
       {/* HERO */}
       <section id="hero" className="relative min-h-screen flex flex-col justify-center overflow-hidden pt-24">
