@@ -68,7 +68,9 @@ export default function AdminSubscriptions() {
 
   // форма
   const [grantPlan, setGrantPlan] = useState("month");
-  const [grantDays, setGrantDays] = useState(30);
+  const [grantUntil, setGrantUntil] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10);
+  });
   const [newExpires, setNewExpires] = useState("");
   const [newPlan, setNewPlan] = useState("month");
 
@@ -91,7 +93,8 @@ export default function AdminSubscriptions() {
     setSelected(sub);
     setModal(type);
     setGrantPlan("month");
-    setGrantDays(30);
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    setGrantUntil(d.toISOString().slice(0, 10));
     setNewExpires(sub.expires_at ? sub.expires_at.slice(0, 10) : "");
     setNewPlan(sub.plan || "month");
   };
@@ -112,7 +115,8 @@ export default function AdminSubscriptions() {
   const doGrantAccess = async () => {
     if (!selected) return;
     setSaving(true);
-    const d = await api("grant_access", { user_id: selected.user_id, plan: grantPlan, days: grantDays });
+    const days = Math.max(1, Math.ceil((new Date(grantUntil).getTime() - Date.now()) / 86400000));
+    const d = await api("grant_access", { user_id: selected.user_id, plan: grantPlan, days });
     setSaving(false);
     closeModal();
     flash(d.message || "Готово");
@@ -301,15 +305,27 @@ export default function AdminSubscriptions() {
               <div className="flex flex-col gap-3">
                 <div>
                   <label className="text-xs text-white/40 mb-1.5 block">Тариф</label>
-                  <select value={grantPlan} onChange={e => { setGrantPlan(e.target.value); setGrantDays(PLAN_DAYS[e.target.value] || 30); }}
+                  <select value={grantPlan} onChange={e => {
+                    const plan = e.target.value;
+                    setGrantPlan(plan);
+                    const d = new Date();
+                    d.setDate(d.getDate() + (PLAN_DAYS[plan] || 30));
+                    setGrantUntil(d.toISOString().slice(0, 10));
+                  }}
                     className="w-full bg-[#0a0a1a] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
                     {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-white/40 mb-1.5 block">Дней доступа</label>
-                  <input type="number" value={grantDays} onChange={e => setGrantDays(Number(e.target.value))} min={1} max={3650}
+                  <label className="text-xs text-white/40 mb-1.5 block">Доступ до</label>
+                  <input type="date" value={grantUntil} onChange={e => setGrantUntil(e.target.value)}
+                    min={new Date().toISOString().slice(0, 10)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none" />
+                  {grantUntil && (
+                    <p className="text-xs text-white/30 mt-1">
+                      {Math.max(1, Math.ceil((new Date(grantUntil).getTime() - Date.now()) / 86400000))} дн.
+                    </p>
+                  )}
                 </div>
                 <button onClick={doGrantAccess} disabled={saving}
                   className="neon-btn text-sm py-2.5 disabled:opacity-40">
