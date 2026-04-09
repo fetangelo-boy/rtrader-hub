@@ -52,10 +52,18 @@ def check_token(event: dict) -> bool:
     c = get_db()
     cur = c.cursor()
     cur.execute(
-        f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at>NOW()",
+        f"SELECT u.id FROM {SCHEMA}.club_sessions s "
+        f"JOIN {SCHEMA}.club_users u ON u.id = s.user_id "
+        f"WHERE s.token=%s AND s.expires_at>NOW() AND u.role IN ('owner','admin')",
         (token,)
     )
     row = cur.fetchone()
+    if not row:
+        cur.execute(
+            f"SELECT id FROM {SCHEMA}.admin_sessions WHERE token=%s AND expires_at>NOW()",
+            (token,)
+        )
+        row = cur.fetchone()
     cur.close(); c.close()
     return row is not None
 
