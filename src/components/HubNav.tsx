@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useAuth } from "@/context/AuthContext";
 
 const SECTIONS = [
   { label: "Комьюнити",  href: "/community",    icon: "Users",     accent: "#00E5FF" },
@@ -13,6 +14,8 @@ const SECTIONS = [
 
 export default function HubNav() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
+  const isAdmin = !!user && (user.role === "owner" || user.role === "admin");
 
   return (
     <div className="fixed top-0 inset-x-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
@@ -67,7 +70,18 @@ export default function HubNav() {
 
         {/* Правые кнопки */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {isAdmin && (
+            <Link
+              to="/rt-manage"
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-[#FFD700]/30 text-[#FFD700]/70 hover:text-[#FFD700] hover:border-[#FFD700]/60 bg-[#FFD700]/5 transition-all duration-200"
+              title="Панель управления"
+            >
+              <Icon name="Shield" size={11} />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          )}
           <a
+
             href="https://t.me/RTrader11"
             target="_blank"
             rel="noopener noreferrer"
