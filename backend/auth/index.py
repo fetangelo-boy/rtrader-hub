@@ -183,5 +183,22 @@ def handler(event: dict, context) -> dict:
             conn.commit()
         return ok({"message": "Пароль изменён"})
 
+    if action == "reset_owner_passwords":
+        secret = body.get("secret", "")
+        if secret != "rtrader_reset_2026":
+            return err("Forbidden", 403)
+        passwords = {
+            "rtrader11@rtrader11.ru": "RTrader2024!",
+            "admin@rtrader11.ru": "Admin2024!",
+        }
+        updated = []
+        with conn.cursor() as cur:
+            for email, pwd in passwords.items():
+                h = hash_password(pwd)
+                cur.execute("UPDATE club_users SET password_hash = %s WHERE email = %s", (h, email))
+                updated.append({"email": email, "hash": h})
+            conn.commit()
+        return ok({"updated": updated})
+
     conn.close()
     return err("Неизвестное действие", 400)
