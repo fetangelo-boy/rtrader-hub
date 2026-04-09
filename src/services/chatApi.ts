@@ -85,24 +85,31 @@ export const chatApi = {
     return CHANNELS_META.map(ch => ({ ...ch, unreadCount: 0 }));
   },
 
-  getMessages: async (channelId: string): Promise<Message[]> => {
-    const r = await fetch(`${CHAT_URL}?action=messages&channel=${channelId}&limit=60`, {
-      headers: authHeaders(),
-    });
+  getMessages: async (channelId: string, source = "club"): Promise<Message[]> => {
+    const url = source === "public"
+      ? `${CHAT_URL}?action=messages&source=public&limit=60`
+      : `${CHAT_URL}?action=messages&channel=${channelId}&limit=60&source=club`;
+    const headers = source === "public" ? { "Content-Type": "application/json" } : authHeaders();
+    const r = await fetch(url, { headers });
     if (!r.ok) return [];
     const d = await r.json();
     return (d.messages || []).map((m: Parameters<typeof mapMessage>[0]) => mapMessage(m, channelId));
   },
 
   sendMessage: async (payload: SendMessagePayload): Promise<Message> => {
-    const r = await fetch(`${CHAT_URL}?action=send`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({ channel: payload.channelId, text: payload.text, reply_to_id: payload.replyToId ?? null }),
-    });
+    const source = payload.source || "club";
+    const url = `${CHAT_URL}?action=send&source=${source}`;
+    const headers = source === "public" ? { "Content-Type": "application/json" } : authHeaders();
+    const body = source === "public"
+      ? { text: payload.text, nickname: payload.nickname, reply_to_id: payload.replyToId ?? null }
+      : { channel: payload.channelId, text: payload.text, reply_to_id: payload.replyToId ?? null };
+    const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Ошибка отправки");
-    const user = await chatApi.getCurrentUser();
+    const nickname = source === "public" ? (payload.nickname || "Вы") : "Вы";
+    const user = source === "public"
+      ? { id: nickname, name: nickname, initials: makeInitials(nickname), role: "member" as const, isOnline: true }
+      : await chatApi.getCurrentUser();
     return {
       id: `msg_${Date.now()}`,
       channelId: payload.channelId,

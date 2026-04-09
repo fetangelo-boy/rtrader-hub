@@ -39,4 +39,6 @@ export interface SendMessagePayload {
   channelId: string;
   text: string;
   replyToId?: number | null;
+  source?: "club" | "public";
+  nickname?: string;
 }

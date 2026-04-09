@@ -14,6 +14,7 @@ import Education from "./pages/Education";
 import Reviews from "./pages/Reviews";
 import Vip from "./pages/Vip";
 import Community from "./pages/Community";
+import PublicCommunity from "./pages/PublicCommunity";
 
 import ClubIndex from "./pages/ClubIndex";
 import AdminPanel from "./pages/admin/Admin";
@@ -79,7 +80,7 @@ function AppRoutes() {
       <Route path="/education" element={<Education />} />
       <Route path="/reviews" element={<Reviews />} />
       <Route path="/vip" element={<Vip />} />
-      <Route path="/community" element={<Community />} />
+      <Route path="/community" element={<PublicCommunity />} />
 
       {/* VIP-клуб */}
       <Route path="/club" element={<ClubRoute><ClubIndex /></ClubRoute>} />
