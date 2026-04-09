@@ -42,6 +42,19 @@ export const useSendMessage = () => {
   });
 };
 
+export const useDeleteMessage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (messageId: string) => chatApi.deleteMessage(messageId),
+    onSuccess: (_data, messageId) => {
+      queryClient.setQueriesData({ queryKey: ["messages"] }, (prev: ReturnType<typeof useMessages>["data"]) =>
+        prev ? prev.filter((m) => m.id !== messageId) : prev
+      );
+    },
+  });
+};
+
 export const useMarkAsRead = () => {
   const queryClient = useQueryClient();
 

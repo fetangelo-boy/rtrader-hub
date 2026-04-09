@@ -25,6 +25,7 @@ export interface Message {
   text: string;
   createdAt: string;
   edited?: boolean;
+  userId?: number;
 }
 
 export interface SendMessagePayload {

@@ -5,7 +5,7 @@ import HubNav from "@/components/HubNav";
 import ChannelList from "@/components/chat/ChannelList";
 import MessageList from "@/components/chat/MessageList";
 import MessageInput from "@/components/chat/MessageInput";
-import { useChannels, useMessages, useSendMessage, useMarkAsRead, useCurrentUser } from "@/hooks/useChat";
+import { useChannels, useMessages, useSendMessage, useMarkAsRead, useCurrentUser, useDeleteMessage } from "@/hooks/useChat";
 import type { Channel } from "@/types/chat";
 import { cn } from "@/lib/utils";
 export default function Community() {
@@ -16,6 +16,7 @@ export default function Community() {
   const { data: channels = [], isLoading: channelsLoading } = useChannels();
   const { data: messages = [], isLoading: messagesLoading } = useMessages(activeChannel?.id ?? null);
   const sendMessage = useSendMessage();
+  const deleteMessage = useDeleteMessage();
   const markAsRead = useMarkAsRead();
 
   const handleSelectChannel = (ch: Channel) => {
@@ -111,6 +112,8 @@ export default function Community() {
                 <MessageList
                   messages={messages}
                   currentUserId={currentUser?.id ?? "me"}
+                  isAdmin={currentUser?.role === "admin"}
+                  onDelete={(id) => deleteMessage.mutate(id)}
                 />
               )}
 

@@ -2,7 +2,7 @@
 Чат по каналам.
 ?action=messages&channel=X&limit=60 — GET  — получить сообщения канала
 ?action=send                         — POST — отправить сообщение
-?action=delete                       — POST — удалить сообщение (admin/owner)
+?action=delete                       — POST — удалить сообщение (admin/owner или автор)
 """
 import json
 import os
@@ -79,7 +79,7 @@ def handler(event: dict, context) -> dict:
 
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT m.id, m.text, m.created_at, u.nickname, u.role
+                SELECT m.id, m.text, m.created_at, u.nickname, u.role, m.user_id
                 FROM club_chat m
                 JOIN club_users u ON m.user_id = u.id
                 WHERE m.channel = %s AND m.is_hidden = FALSE
@@ -88,7 +88,7 @@ def handler(event: dict, context) -> dict:
             """, (channel, limit))
             rows = cur.fetchall()
 
-        messages = [{"id": r[0], "text": r[1], "created_at": r[2].isoformat(), "nickname": r[3], "role": r[4]} for r in rows]
+        messages = [{"id": r[0], "text": r[1], "created_at": r[2].isoformat(), "nickname": r[3], "role": r[4], "user_id": r[5]} for r in rows]
         return ok({"messages": messages})
 
     if action == "send":
@@ -117,13 +117,17 @@ def handler(event: dict, context) -> dict:
         return ok({"message": "Отправлено"})
 
     if action == "delete":
-        if not is_privileged:
-            return err("Нет прав", 403)
         body = json.loads(event.get("body") or "{}")
         message_id = body.get("message_id")
         if not message_id:
             return err("message_id обязателен")
         with conn.cursor() as cur:
+            cur.execute("SELECT user_id FROM club_chat WHERE id = %s AND is_hidden = FALSE", (message_id,))
+            row = cur.fetchone()
+            if not row:
+                return err("Сообщение не найдено", 404)
+            if not is_privileged and row[0] != user["id"]:
+                return err("Нет прав", 403)
             cur.execute("UPDATE club_chat SET is_hidden = TRUE WHERE id = %s", (message_id,))
             conn.commit()
         return ok({"message": "Удалено"})

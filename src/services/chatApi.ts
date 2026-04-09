@@ -40,12 +40,13 @@ function mapRole(role: string): User["role"] {
   return "member";
 }
 
-function mapMessage(raw: { id: number; text: string; created_at: string; nickname: string; role: string }, channelId: string): Message {
+function mapMessage(raw: { id: number; text: string; created_at: string; nickname: string; role: string; user_id?: number }, channelId: string): Message {
   return {
     id: String(raw.id),
     channelId,
     text: raw.text,
     createdAt: formatTime(raw.created_at),
+    userId: raw.user_id,
     author: {
       id: raw.nickname,
       name: raw.nickname,
@@ -103,6 +104,16 @@ export const chatApi = {
       createdAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       author: user,
     };
+  },
+
+  deleteMessage: async (messageId: string): Promise<void> => {
+    const r = await fetch(`${CHAT_URL}?action=delete`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ message_id: Number(messageId) }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Ошибка удаления");
   },
 
   markAsRead: async (_channelId: string): Promise<void> => {
