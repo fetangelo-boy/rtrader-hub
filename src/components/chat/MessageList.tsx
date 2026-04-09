@@ -119,19 +119,17 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
                 </div>
 
                 <div className={cn(
-                  "flex gap-1 shrink-0 mb-1 transition-opacity duration-100",
+                  "flex gap-1 shrink-0 mb-1 transition-opacity duration-150",
                   isMe && "flex-row-reverse",
                   hoveredId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
                 )}>
-                  {onReply && (
-                    <button
-                      onClick={() => onReply({ id: Number(msg.id), nickname: msg.author.name, text: msg.text })}
-                      className="w-6 h-6 flex items-center justify-center rounded-lg text-white/40 hover:text-neon-yellow hover:bg-neon-yellow/10 transition-all"
-                      title="Ответить"
-                    >
-                      <Icon name="Reply" size={12} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onReply?.({ id: Number(msg.id), nickname: msg.author.name, text: msg.text })}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg text-white/40 hover:text-neon-yellow hover:bg-neon-yellow/10 transition-all"
+                    title="Ответить"
+                  >
+                    <Icon name="Reply" size={12} />
+                  </button>
                   {canDelete && onDelete && (
                     <button
                       onClick={() => onDelete(msg.id)}
