@@ -142,6 +142,34 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
                 "body": json.dumps({"ok": True})}
 
+    # --- Управление видимостью разделов сайта ---
+    if method == "GET" and params.get("action") == "sections":
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(f"SELECT key, label, is_visible FROM {SCHEMA}.site_sections ORDER BY key")
+        sections = [dict(r) for r in cur.fetchall()]
+        cur.close()
+        conn.close()
+        return {"statusCode": 200, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"sections": sections}, ensure_ascii=False)}
+
+    if method == "PATCH" and params.get("action") == "sections":
+        body = json.loads(event.get("body") or "{}")
+        key = (body.get("key") or "").strip()
+        is_visible = bool(body.get("is_visible", True))
+        if not key:
+            conn.close()
+            return {"statusCode": 400, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                    "body": json.dumps({"error": "key обязателен"})}
+        cur = conn.cursor()
+        cur.execute(f"UPDATE {SCHEMA}.site_sections SET is_visible = %s, updated_at = NOW() WHERE key = %s",
+                    (is_visible, key))
+        log_action(conn, username, "section_visibility", {"key": key, "is_visible": is_visible})
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {"statusCode": 200, "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"ok": True})}
+
     conn.close()
     return {"statusCode": 405, "headers": CORS_HEADERS,
             "body": json.dumps({"error": "Method not allowed"})}

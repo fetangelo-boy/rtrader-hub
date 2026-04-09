@@ -1,21 +1,32 @@
 import { Link, useLocation } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/context/AuthContext";
+import { useSiteSections } from "@/hooks/useSiteSections";
 
-const SECTIONS = [
-  { label: "Комьюнити",  href: "/community",    icon: "Users",     accent: "#00E5FF" },
-  { label: "Аналитика",  href: "/analytics",    icon: "TrendingUp",accent: "#FFD700" },
-  { label: "Рефлексии",  href: "/reflections",  icon: "Brain",     accent: "#9B30FF" },
-  { label: "Конкурсы",   href: "/tournaments",  icon: "Trophy",    accent: "#FF8C00" },
-  { label: "VIP-клуб",   href: "/vip",          icon: "Crown",     accent: "#FF2D78" },
-  { label: "Обучение",   href: "/education",    icon: "BookOpen",  accent: "#4169FF" },
-  { label: "Отзывы",     href: "/reviews",      icon: "Star",      accent: "#FFD700" },
+const ALL_SECTIONS = [
+  { key: "community",   label: "Комьюнити",  href: "/community",    icon: "Users",      accent: "#00E5FF" },
+  { key: "analytics",   label: "Аналитика",  href: "/analytics",    icon: "TrendingUp", accent: "#FFD700" },
+  { key: "reflections", label: "Рефлексии",  href: "/reflections",  icon: "Brain",      accent: "#9B30FF" },
+  { key: "tournaments", label: "Конкурсы",   href: "/tournaments",  icon: "Trophy",     accent: "#FF8C00" },
+  { key: "vip",         label: "VIP-клуб",   href: "/vip",          icon: "Crown",      accent: "#FF2D78" },
+  { key: "education",   label: "Обучение",   href: "/education",    icon: "BookOpen",   accent: "#4169FF" },
+  { key: "reviews",     label: "Отзывы",     href: "/reviews",      icon: "Star",       accent: "#FFD700" },
 ];
 
 export default function HubNav() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   const isAdmin = !!user && (user.role === "owner" || user.role === "admin");
+  const { data: siteSections } = useSiteSections();
+
+  // Пока данные не загружены — показываем все разделы (нет мерцания)
+  const visibleKeys = siteSections
+    ? new Set(siteSections.filter(s => s.is_visible).map(s => s.key))
+    : null;
+
+  const SECTIONS = visibleKeys
+    ? ALL_SECTIONS.filter(s => visibleKeys.has(s.key))
+    : ALL_SECTIONS;
 
   return (
     <div className="fixed top-0 inset-x-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
@@ -81,7 +92,6 @@ export default function HubNav() {
             </Link>
           )}
           <a
-
             href="https://t.me/RTrader11"
             target="_blank"
             rel="noopener noreferrer"
