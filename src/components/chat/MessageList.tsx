@@ -56,7 +56,7 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
   }
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+    <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-3">
       {messages.map((msg) => {
         const isMe = msg.author.id === currentUserId;
         const canDelete = isAdmin || isMe;
@@ -64,7 +64,7 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
         return (
           <div
             key={msg.id}
-            className={cn("flex gap-3 group", isMe && "flex-row-reverse")}
+            className={cn("flex gap-3 py-1.5", isMe && "flex-row-reverse")}
             onMouseEnter={() => setHoveredId(msg.id)}
             onMouseLeave={() => setHoveredId(null)}
           >
@@ -118,28 +118,30 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
                   {msg.text}
                 </div>
 
-                {hoveredId === msg.id && (
-                  <div className={cn("flex gap-1 shrink-0 mb-1", isMe && "flex-row-reverse")}>
-                    {onReply && (
-                      <button
-                        onClick={() => onReply({ id: Number(msg.id), nickname: msg.author.name, text: msg.text })}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-white/20 hover:text-neon-yellow hover:bg-neon-yellow/10 transition-all"
-                        title="Ответить"
-                      >
-                        <Icon name="Reply" size={12} />
-                      </button>
-                    )}
-                    {canDelete && onDelete && (
-                      <button
-                        onClick={() => onDelete(msg.id)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                        title="Удалить"
-                      >
-                        <Icon name="Trash2" size={12} />
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className={cn(
+                  "flex gap-1 shrink-0 mb-1 transition-opacity duration-100",
+                  isMe && "flex-row-reverse",
+                  hoveredId === msg.id ? "opacity-100" : "opacity-0 pointer-events-none"
+                )}>
+                  {onReply && (
+                    <button
+                      onClick={() => onReply({ id: Number(msg.id), nickname: msg.author.name, text: msg.text })}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg text-white/40 hover:text-neon-yellow hover:bg-neon-yellow/10 transition-all"
+                      title="Ответить"
+                    >
+                      <Icon name="Reply" size={12} />
+                    </button>
+                  )}
+                  {canDelete && onDelete && (
+                    <button
+                      onClick={() => onDelete(msg.id)}
+                      className="w-6 h-6 flex items-center justify-center rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                      title="Удалить"
+                    >
+                      <Icon name="Trash2" size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
