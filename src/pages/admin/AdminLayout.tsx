@@ -87,9 +87,9 @@ export default function AdminLayout({ children, onLogout }: Props) {
           <div className="p-3 border-t border-white/8">
             <Link
               to="/"
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-white/35 hover:text-white/70 transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-[#FFD700] border border-[#FFD700]/30 bg-[#FFD700]/5 hover:bg-[#FFD700]/15 hover:border-[#FFD700]/60 hover:shadow-[0_0_10px_rgba(255,215,0,0.2)] transition-all duration-200"
             >
-              <Icon name="ExternalLink" size={14} /> На сайт
+              <Icon name="ArrowLeft" size={14} /> На сайт
             </Link>
           </div>
         </aside>
