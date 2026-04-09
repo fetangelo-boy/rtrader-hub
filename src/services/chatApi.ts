@@ -40,13 +40,19 @@ function mapRole(role: string): User["role"] {
   return "member";
 }
 
-function mapMessage(raw: { id: number; text: string; created_at: string; nickname: string; role: string; user_id?: number }, channelId: string): Message {
+function mapMessage(raw: {
+  id: number; text: string; created_at: string; nickname: string; role: string; user_id?: number;
+  reply_to_id?: number | null; reply_to_nickname?: string | null; reply_to_text?: string | null;
+}, channelId: string): Message {
   return {
     id: String(raw.id),
     channelId,
     text: raw.text,
     createdAt: formatTime(raw.created_at),
     userId: raw.user_id,
+    replyTo: raw.reply_to_id
+      ? { id: raw.reply_to_id, nickname: raw.reply_to_nickname ?? "", text: raw.reply_to_text ?? "" }
+      : null,
     author: {
       id: raw.nickname,
       name: raw.nickname,
@@ -92,7 +98,7 @@ export const chatApi = {
     const r = await fetch(`${CHAT_URL}?action=send`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ channel: payload.channelId, text: payload.text }),
+      body: JSON.stringify({ channel: payload.channelId, text: payload.text, reply_to_id: payload.replyToId ?? null }),
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Ошибка отправки");
@@ -101,6 +107,7 @@ export const chatApi = {
       id: `msg_${Date.now()}`,
       channelId: payload.channelId,
       text: payload.text,
+      replyTo: null,
       createdAt: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       author: user,
     };

@@ -1,21 +1,30 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import type { ReplyTo } from "@/types/chat";
 
 interface Props {
   channelName: string;
-  onSend: (text: string) => void;
+  onSend: (text: string, replyToId?: number | null) => void;
   disabled?: boolean;
+  replyTo?: ReplyTo | null;
+  onCancelReply?: () => void;
 }
 
-export default function MessageInput({ channelName, onSend, disabled }: Props) {
+export default function MessageInput({ channelName, onSend, disabled, replyTo, onCancelReply }: Props) {
   const [text, setText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (replyTo) {
+      textareaRef.current?.focus();
+    }
+  }, [replyTo]);
 
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
-    onSend(trimmed);
+    onSend(trimmed, replyTo?.id ?? null);
     setText("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -26,6 +35,9 @@ export default function MessageInput({ channelName, onSend, disabled }: Props) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+    if (e.key === "Escape" && replyTo) {
+      onCancelReply?.();
     }
   };
 
@@ -38,6 +50,21 @@ export default function MessageInput({ channelName, onSend, disabled }: Props) {
 
   return (
     <div className="px-4 pb-4 pt-2 border-t border-white/5">
+      {replyTo && (
+        <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-neon-yellow/5 border border-neon-yellow/20">
+          <div className="w-0.5 h-8 bg-neon-yellow/60 rounded-full shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-neon-yellow font-semibold mb-0.5">{replyTo.nickname}</p>
+            <p className="text-xs text-white/50 truncate">{replyTo.text}</p>
+          </div>
+          <button
+            onClick={onCancelReply}
+            className="shrink-0 w-5 h-5 flex items-center justify-center text-white/30 hover:text-white/70 transition-colors"
+          >
+            <Icon name="X" size={12} />
+          </button>
+        </div>
+      )}
       <div
         className={cn(
           "flex items-end gap-2 glass-card rounded-xl px-3 py-2",
@@ -50,7 +77,7 @@ export default function MessageInput({ channelName, onSend, disabled }: Props) {
           onChange={(e) => setText(e.target.value)}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder={`Сообщение в #${channelName}`}
+          placeholder={replyTo ? `Ответ для ${replyTo.nickname}...` : `Сообщение в #${channelName}`}
           disabled={disabled}
           rows={1}
           className={cn(
@@ -73,7 +100,7 @@ export default function MessageInput({ channelName, onSend, disabled }: Props) {
         </button>
       </div>
       <p className="text-[10px] text-white/20 mt-1 px-1">
-        Enter — отправить, Shift+Enter — новая строка
+        Enter — отправить · Shift+Enter — новая строка{replyTo ? " · Esc — отменить ответ" : ""}
       </p>
     </div>
   );

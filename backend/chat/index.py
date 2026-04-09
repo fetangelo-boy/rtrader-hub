@@ -79,7 +79,8 @@ def handler(event: dict, context) -> dict:
 
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT m.id, m.text, m.created_at, u.nickname, u.role, m.user_id
+                SELECT m.id, m.text, m.created_at, u.nickname, u.role, m.user_id,
+                       m.reply_to_id, m.reply_to_nickname, m.reply_to_text
                 FROM club_chat m
                 JOIN club_users u ON m.user_id = u.id
                 WHERE m.channel = %s AND m.is_hidden = FALSE
@@ -88,13 +89,18 @@ def handler(event: dict, context) -> dict:
             """, (channel, limit))
             rows = cur.fetchall()
 
-        messages = [{"id": r[0], "text": r[1], "created_at": r[2].isoformat(), "nickname": r[3], "role": r[4], "user_id": r[5]} for r in rows]
+        messages = [{
+            "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
+            "nickname": r[3], "role": r[4], "user_id": r[5],
+            "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8]
+        } for r in rows]
         return ok({"messages": messages})
 
     if action == "send":
         body = json.loads(event.get("body") or "{}")
         channel = body.get("channel", "")
         text = body.get("text", "").strip()
+        reply_to_id = body.get("reply_to_id")
 
         if channel not in VALID_CHANNELS:
             return err("Неверный канал")
@@ -106,12 +112,26 @@ def handler(event: dict, context) -> dict:
         if channel in READONLY_CHANNELS and not is_privileged:
             return err("Этот канал только для чтения")
 
+        reply_to_nickname = None
+        reply_to_text = None
+        if reply_to_id:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT m.text, u.nickname FROM club_chat m
+                    JOIN club_users u ON m.user_id = u.id
+                    WHERE m.id = %s AND m.is_hidden = FALSE
+                """, (reply_to_id,))
+                ref = cur.fetchone()
+                if ref:
+                    reply_to_text = ref[0][:200]
+                    reply_to_nickname = ref[1]
+
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO club_chat (user_id, channel, text)
-                VALUES (%s, %s, %s)
+                INSERT INTO club_chat (user_id, channel, text, reply_to_id, reply_to_nickname, reply_to_text)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (user["id"], channel, text))
+            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text))
             conn.commit()
 
         return ok({"message": "Отправлено"})

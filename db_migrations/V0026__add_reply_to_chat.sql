@@ -1,0 +1,4 @@
+ALTER TABLE club_chat
+  ADD COLUMN IF NOT EXISTS reply_to_id INTEGER,
+  ADD COLUMN IF NOT EXISTS reply_to_nickname VARCHAR(64),
+  ADD COLUMN IF NOT EXISTS reply_to_text TEXT;

@@ -18,6 +18,12 @@ export interface Channel {
   category: "trading" | "general" | "vip";
 }
 
+export interface ReplyTo {
+  id: number;
+  nickname: string;
+  text: string;
+}
+
 export interface Message {
   id: string;
   channelId: string;
@@ -26,9 +32,11 @@ export interface Message {
   createdAt: string;
   edited?: boolean;
   userId?: number;
+  replyTo?: ReplyTo | null;
 }
 
 export interface SendMessagePayload {
   channelId: string;
   text: string;
+  replyToId?: number | null;
 }

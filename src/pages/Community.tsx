@@ -6,11 +6,12 @@ import ChannelList from "@/components/chat/ChannelList";
 import MessageList from "@/components/chat/MessageList";
 import MessageInput from "@/components/chat/MessageInput";
 import { useChannels, useMessages, useSendMessage, useMarkAsRead, useCurrentUser, useDeleteMessage } from "@/hooks/useChat";
-import type { Channel } from "@/types/chat";
+import type { Channel, ReplyTo } from "@/types/chat";
 import { cn } from "@/lib/utils";
 export default function Community() {
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
 
   const { data: currentUser } = useCurrentUser();
   const { data: channels = [], isLoading: channelsLoading } = useChannels();
@@ -22,12 +23,14 @@ export default function Community() {
   const handleSelectChannel = (ch: Channel) => {
     setActiveChannel(ch);
     setSidebarOpen(false);
+    setReplyTo(null);
     markAsRead.mutate(ch.id);
   };
 
-  const handleSend = (text: string) => {
+  const handleSend = (text: string, replyToId?: number | null) => {
     if (!activeChannel) return;
-    sendMessage.mutate({ channelId: activeChannel.id, text });
+    sendMessage.mutate({ channelId: activeChannel.id, text, replyToId });
+    setReplyTo(null);
   };
 
   return (
@@ -114,6 +117,7 @@ export default function Community() {
                   currentUserId={currentUser?.id ?? "me"}
                   isAdmin={currentUser?.role === "admin"}
                   onDelete={(id) => deleteMessage.mutate(id)}
+                  onReply={(r) => setReplyTo(r)}
                 />
               )}
 
@@ -121,6 +125,8 @@ export default function Community() {
                 channelName={activeChannel.name}
                 onSend={handleSend}
                 disabled={sendMessage.isPending}
+                replyTo={replyTo}
+                onCancelReply={() => setReplyTo(null)}
               />
             </>
           ) : (
