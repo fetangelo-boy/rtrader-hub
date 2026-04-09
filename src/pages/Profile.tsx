@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import Icon from "@/components/ui/icon";
@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import func2url from "../../backend/func2url.json";
+import { cn } from "@/lib/utils";
 
 const AUTH_URL = (func2url as Record<string, string>).auth;
+const TG_BOT_URL = (func2url as Record<string, string>)["tg-vip-bot"];
 
 export default function Profile() {
   const { user, token, subscription, logout } = useAuth();
@@ -24,11 +26,21 @@ export default function Profile() {
   const [passError, setPassError] = useState("");
   const [passSuccess, setPassSuccess] = useState(false);
 
+  const [tgLinked, setTgLinked] = useState<boolean | null>(null);
+  const [tgUsername, setTgUsername] = useState<string | null>(null);
+  const [tgLinkLoading, setTgLinkLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token } })
+      .then(r => r.json())
+      .then(d => { setTgLinked(d.linked); setTgUsername(d.telegram_username || null); })
+      .catch(() => {});
+  }, [token]);
+
   const handleNickname = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNickError("");
-    setNickSuccess(false);
-    setNickLoading(true);
+    setNickError(""); setNickSuccess(false); setNickLoading(true);
     try {
       const r = await fetch(`${AUTH_URL}?action=update_nickname`, {
         method: "POST",
@@ -40,16 +52,12 @@ export default function Profile() {
       setNickSuccess(true);
     } catch (err: unknown) {
       setNickError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setNickLoading(false);
-    }
+    } finally { setNickLoading(false); }
   };
 
   const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPassError("");
-    setPassSuccess(false);
-    setPassLoading(true);
+    setPassError(""); setPassSuccess(false); setPassLoading(true);
     try {
       const r = await fetch(`${AUTH_URL}?action=change_password`, {
         method: "POST",
@@ -58,20 +66,27 @@ export default function Profile() {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Ошибка");
-      setPassSuccess(true);
-      setOldPass("");
-      setNewPass("");
+      setPassSuccess(true); setOldPass(""); setNewPass("");
     } catch (err: unknown) {
       setPassError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setPassLoading(false);
-    }
+    } finally { setPassLoading(false); }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
+  const handleConnectTg = async () => {
+    setTgLinkLoading(true);
+    try {
+      const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
+      const d = await r.json();
+      if (d.url) window.open(d.url, "_blank");
+    } finally { setTgLinkLoading(false); }
   };
+
+  const handleUnlinkTg = async () => {
+    await fetch(`${TG_BOT_URL}?action=unlink`, { method: "POST", headers: { "X-Auth-Token": token || "" } });
+    setTgLinked(false); setTgUsername(null);
+  };
+
+  const handleLogout = async () => { await logout(); navigate("/login"); };
 
   const subExpiresAt = subscription?.expires_at
     ? new Date(subscription.expires_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
@@ -90,9 +105,7 @@ export default function Profile() {
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-lg">
-                {user?.nickname?.slice(0, 2).toUpperCase()}
-              </span>
+              <span className="text-primary font-bold text-lg">{user?.nickname?.slice(0, 2).toUpperCase()}</span>
             </div>
             <div>
               <p className="font-semibold text-foreground">{user?.nickname}</p>
@@ -101,17 +114,12 @@ export default function Profile() {
           </div>
 
           {subscription && (
-            <div className={`rounded-lg px-4 py-3 flex items-center justify-between text-sm ${
-              subscription.status === "active"
-                ? "bg-green/10 border border-green/20"
-                : "bg-muted border border-border"
-            }`}>
+            <div className={cn("rounded-lg px-4 py-3 flex items-center justify-between text-sm",
+              subscription.status === "active" ? "bg-green/10 border border-green/20" : "bg-muted border border-border"
+            )}>
               <div className="flex items-center gap-2">
-                <Icon
-                  name={subscription.status === "active" ? "CheckCircle" : "Clock"}
-                  size={16}
-                  className={subscription.status === "active" ? "text-green" : "text-muted-foreground"}
-                />
+                <Icon name={subscription.status === "active" ? "CheckCircle" : "Clock"} size={16}
+                  className={subscription.status === "active" ? "text-green" : "text-muted-foreground"} />
                 <span className={subscription.status === "active" ? "text-green font-medium" : "text-muted-foreground"}>
                   {subscription.status === "active" ? "Подписка активна" : "Заявка на рассмотрении"}
                 </span>
@@ -123,18 +131,47 @@ export default function Profile() {
           )}
         </div>
 
+        {/* Telegram */}
+        <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+          <h2 className="font-semibold text-foreground flex items-center gap-2">
+            <Icon name="Send" size={16} className="text-[#29b6f6]" />
+            Telegram-уведомления
+          </h2>
+          {tgLinked === null ? (
+            <p className="text-sm text-muted-foreground">Загрузка...</p>
+          ) : tgLinked ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-lg bg-green/10 border border-green/20 px-4 py-3">
+                <Icon name="CheckCircle" size={15} className="text-green shrink-0" />
+                <div>
+                  <p className="text-sm text-green font-medium">Telegram подключён</p>
+                  {tgUsername && <p className="text-xs text-muted-foreground">@{tgUsername}</p>}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Будешь получать напоминания об истечении подписки.</p>
+              <button onClick={handleUnlinkTg} className="text-xs text-destructive hover:underline">
+                Отвязать Telegram
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Подключи Telegram, чтобы получать уведомления о подписке прямо в мессенджер.
+              </p>
+              <Button onClick={handleConnectTg} disabled={tgLinkLoading} className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white">
+                <Icon name="Send" size={15} className="mr-2" />
+                {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
+              </Button>
+            </div>
+          )}
+        </div>
+
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-4">Изменить никнейм</h2>
           <form onSubmit={handleNickname} className="space-y-3">
             <div>
               <Label htmlFor="nickname">Никнейм</Label>
-              <Input
-                id="nickname"
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="Введите новый никнейм"
-                required
-              />
+              <Input id="nickname" value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Введите новый никнейм" required />
             </div>
             {nickError && <p className="text-sm text-destructive">{nickError}</p>}
             {nickSuccess && <p className="text-sm text-green">Никнейм обновлён</p>}
@@ -149,39 +186,21 @@ export default function Profile() {
           <form onSubmit={handlePassword} className="space-y-3">
             <div>
               <Label htmlFor="old_pass">Текущий пароль</Label>
-              <Input
-                id="old_pass"
-                type="password"
-                value={oldPass}
-                onChange={e => setOldPass(e.target.value)}
-                placeholder="Текущий пароль"
-                required
-              />
+              <Input id="old_pass" type="password" value={oldPass} onChange={e => setOldPass(e.target.value)} placeholder="Текущий пароль" required />
             </div>
             <div>
               <Label htmlFor="new_pass">Новый пароль</Label>
-              <Input
-                id="new_pass"
-                type="password"
-                value={newPass}
-                onChange={e => setNewPass(e.target.value)}
-                placeholder="Минимум 6 символов"
-                required
-              />
+              <Input id="new_pass" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Минимум 6 символов" required />
             </div>
             {passError && <p className="text-sm text-destructive">{passError}</p>}
             {passSuccess && <p className="text-sm text-green">Пароль изменён</p>}
             <Button type="submit" disabled={passLoading} variant="outline" className="w-full">
-              {passLoading ? "Сохранение..." : "Изменить пароль"}
+              {passLoading ? "Изменение..." : "Изменить пароль"}
             </Button>
           </form>
         </div>
 
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-        >
+        <Button onClick={handleLogout} variant="outline" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10">
           <Icon name="LogOut" size={16} className="mr-2" />
           Выйти из аккаунта
         </Button>

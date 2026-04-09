@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "gen_link without token returns 401",
+      "method": "GET",
+      "path": "/?action=gen_link",
+      "expectedStatus": 401
+    }
+  ]
+}

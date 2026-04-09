@@ -1,0 +1,10 @@
+ALTER TABLE club_users
+  ADD COLUMN IF NOT EXISTS telegram_id BIGINT UNIQUE,
+  ADD COLUMN IF NOT EXISTS telegram_username VARCHAR(64);
+
+CREATE TABLE IF NOT EXISTS tg_link_tokens (
+  token VARCHAR(64) PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES club_users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '15 minutes'
+);

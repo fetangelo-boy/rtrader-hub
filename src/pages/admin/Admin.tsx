@@ -14,6 +14,7 @@ import AdminActivityLog from "./AdminActivityLog";
 import AdminSubscriptions from "./AdminSubscriptions";
 import AdminStats from "./AdminStats";
 import AdminPricing from "./AdminPricing";
+import AdminBroadcast from "./AdminBroadcast";
 
 export default function Admin() {
   const { isAuthed, login, logout, loading, error } = useAdminAuth();
@@ -37,6 +38,7 @@ export default function Admin() {
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="stats" element={<AdminStats />} />
         <Route path="pricing" element={<AdminPricing />} />
+        <Route path="broadcast" element={<AdminBroadcast />} />
       </Routes>
     </AdminLayout>
   );
