@@ -12,7 +12,7 @@ export interface User {
   id: number;
   nickname: string;
   email: string;
-  role: "owner" | "admin" | "subscriber";
+  role: "owner" | "admin" | "editor" | "subscriber";
   is_blocked?: boolean;
 }
 

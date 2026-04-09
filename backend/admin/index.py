@@ -205,7 +205,7 @@ def handler(event: dict, context) -> dict:
         status_filter = qs.get("status", "").strip()
         with conn.cursor() as cur:
             query = """
-                SELECT u.id, u.email, u.nickname, u.is_blocked,
+                SELECT u.id, u.email, u.nickname, u.is_blocked, u.role,
                        s.id as sub_id, s.plan, s.status, s.expires_at, s.created_at
                 FROM club_users u
                 LEFT JOIN LATERAL (
@@ -235,10 +235,10 @@ def handler(event: dict, context) -> dict:
         now = datetime.now(timezone.utc)
         result = []
         for r in rows:
-            exp = r[7]
+            exp = r[8]
             if exp and exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
-            sub_status = r[6]
+            sub_status = r[7]
             computed = "none"
             if sub_status == "active":
                 if exp is None:
@@ -254,10 +254,10 @@ def handler(event: dict, context) -> dict:
             elif sub_status == "rejected":
                 computed = "expired"
             result.append({
-                "user_id": r[0], "email": r[1], "nickname": r[2], "is_blocked": r[3],
-                "sub_id": r[4], "plan": r[5], "status": computed,
+                "user_id": r[0], "email": r[1], "nickname": r[2], "is_blocked": r[3], "role": r[4],
+                "sub_id": r[5], "plan": r[6], "status": computed,
                 "expires_at": exp.isoformat() if exp else None,
-                "created_at": r[8].isoformat() if r[8] else None,
+                "created_at": r[9].isoformat() if r[9] else None,
             })
         return ok({"subscribers": result})
 

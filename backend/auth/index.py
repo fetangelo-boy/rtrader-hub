@@ -208,5 +208,28 @@ def handler(event: dict, context) -> dict:
             conn.commit()
         return ok({"updated": updated})
 
+    if action == "set_role":
+        token = event.get("headers", {}).get("X-Auth-Token", "")
+        caller = get_user_by_token(conn, token)
+        if not caller or caller["role"] not in ("owner", "admin"):
+            return err("Нет доступа", 403)
+        target_id = body.get("user_id")
+        new_role = body.get("role", "")
+        allowed_roles = ("subscriber", "editor")
+        if new_role not in allowed_roles:
+            return err(f"Допустимые роли: {', '.join(allowed_roles)}")
+        if not target_id:
+            return err("user_id обязателен")
+        with conn.cursor() as cur:
+            cur.execute("SELECT role FROM club_users WHERE id = %s", (target_id,))
+            row = cur.fetchone()
+            if not row:
+                return err("Пользователь не найден", 404)
+            if row[0] in ("owner", "admin"):
+                return err("Нельзя менять роль владельца/администратора")
+            cur.execute("UPDATE club_users SET role = %s WHERE id = %s", (new_role, target_id))
+            conn.commit()
+        return ok({"message": f"Роль изменена на {new_role}"})
+
     conn.close()
     return err("Неизвестное действие", 400)

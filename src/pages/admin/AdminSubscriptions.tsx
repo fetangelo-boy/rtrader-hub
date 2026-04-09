@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 
 const API = "https://functions.poehali.dev/58c8224f-b1da-4e1a-9c7a-09bf808c3c47";
+const AUTH_API = "https://functions.poehali.dev/ae3bd284-8ae4-4f3e-9c34-1eb7f36477ed";
 
 const PLAN_LABELS: Record<string, string> = {
   week: "1 неделя", month: "1 месяц", quarter: "3 месяца",
@@ -21,7 +22,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 };
 
 interface Subscriber {
-  user_id: number; email: string; nickname: string; is_blocked: boolean;
+  user_id: number; email: string; nickname: string; is_blocked: boolean; role?: string;
   sub_id: number | null; plan: string | null; status: string;
   expires_at: string | null; created_at: string | null;
 }
@@ -150,6 +151,21 @@ export default function AdminSubscriptions() {
     load();
   };
 
+  const doToggleEditor = async (sub: Subscriber) => {
+    const isEditor = sub.role === "editor";
+    const newRole = isEditor ? "subscriber" : "editor";
+    const label = isEditor ? "снять роль редактора" : "назначить редактором";
+    if (!confirm(`${label} для ${sub.nickname}?`)) return;
+    const res = await fetch(`${AUTH_API}?action=set_role`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ user_id: sub.user_id, role: newRole }),
+    });
+    const d = await res.json();
+    flash(d.message || d.error || "Готово");
+    load();
+  };
+
   const counts = {
     all: subscribers.length,
     active: subscribers.filter(s => s.status === "active").length,
@@ -231,6 +247,7 @@ export default function AdminSubscriptions() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold text-white">{sub.nickname || "—"}</span>
                     <span className="text-xs text-white/35">{sub.email}</span>
+                    {sub.role === "editor" && <span className="text-xs text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded-md border border-purple-400/20">редактор</span>}
                     {sub.is_blocked && <span className="text-xs text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded-md">заблокирован</span>}
                   </div>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -253,6 +270,16 @@ export default function AdminSubscriptions() {
 
                 {/* Действия */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    title={sub.role === "editor" ? "Снять роль редактора" : "Назначить редактором"}
+                    onClick={() => doToggleEditor(sub)}
+                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
+                      sub.role === "editor"
+                        ? "bg-purple-500/20 border-purple-500/30 text-purple-400 hover:bg-purple-500/30"
+                        : "bg-white/5 border-white/10 text-white/30 hover:text-purple-400 hover:bg-purple-500/10"
+                    }`}>
+                    <Icon name="PenLine" size={13} />
+                  </button>
                   <button title="История изменений" onClick={() => openHistory(sub)}
                     className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-white/40 flex items-center justify-center hover:text-white hover:bg-white/10 transition-all">
                     <Icon name="History" size={13} />
