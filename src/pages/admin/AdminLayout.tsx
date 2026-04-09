@@ -35,12 +35,12 @@ export default function AdminLayout({ children, onLogout }: Props) {
     <div className="neon-grid-bg min-h-screen font-montserrat text-white flex flex-col">
       {/* Топбар */}
       <header className="h-12 border-b border-white/8 flex items-center justify-between px-5 flex-shrink-0 bg-black/30 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
+        <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="w-6 h-6 rounded-md brand-gradient-bg flex items-center justify-center">
             <span className="font-russo text-black text-[9px] font-black">RT</span>
           </div>
           <span className="font-russo text-xs tracking-wider text-white/60">RTRADER <span className="text-white/25">/ admin</span></span>
-        </div>
+        </a>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
             <div className="w-5 h-5 rounded-full brand-gradient-bg flex items-center justify-center flex-shrink-0">
