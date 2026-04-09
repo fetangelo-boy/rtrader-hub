@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 
@@ -53,10 +54,11 @@ function daysLeft(iso: string | null) {
 }
 
 export default function AdminSubscriptions() {
+  const [searchParams] = useSearchParams();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
   const [selected, setSelected] = useState<Subscriber | null>(null);
   const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | null>(null);
   const [saving, setSaving] = useState(false);

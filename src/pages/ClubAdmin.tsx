@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import Icon from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
@@ -36,24 +36,36 @@ function StatsPanel({ token }: { token: string | null }) {
   if (loading) return <div className="flex justify-center p-8"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
   const items = [
-    { label: "Всего пользователей", value: stats?.total_users ?? 0, icon: "Users" },
-    { label: "Новых за 30 дней", value: stats?.new_users_30d ?? 0, icon: "UserPlus" },
-    { label: "Активных подписок", value: stats?.active_subscriptions ?? 0, icon: "Star" },
-    { label: "Ожидают проверки", value: stats?.pending_payments ?? 0, icon: "Clock" },
-    { label: "Заблокировано", value: stats?.blocked_users ?? 0, icon: "Ban" },
+    { label: "Всего пользователей", value: stats?.total_users ?? 0, icon: "Users", link: null },
+    { label: "Новых за 30 дней", value: stats?.new_users_30d ?? 0, icon: "UserPlus", link: null },
+    { label: "Активных подписок", value: stats?.active_subscriptions ?? 0, icon: "Star", link: "/rt-manage/subscriptions?status=active" },
+    { label: "Ожидают проверки", value: stats?.pending_payments ?? 0, icon: "Clock", link: "/rt-manage/subscriptions?status=pending" },
+    { label: "Заблокировано", value: stats?.blocked_users ?? 0, icon: "Ban", link: null },
   ];
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4">
-      {items.map(item => (
-        <div key={item.label} className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Icon name={item.icon as Parameters<typeof Icon>[0]["name"]} size={16} className="text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{item.label}</span>
+      {items.map(item => {
+        const inner = (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <Icon name={item.icon as Parameters<typeof Icon>[0]["name"]} size={16} className="text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{item.label}</span>
+            </div>
+            <p className="text-2xl font-bold text-foreground">{item.value}</p>
+            {item.link && <p className="text-[10px] text-primary mt-1 flex items-center gap-1">Управлять <Icon name="ArrowRight" size={9} /></p>}
+          </>
+        );
+        return item.link ? (
+          <Link key={item.label} to={item.link} className="bg-card border border-border rounded-lg p-4 hover:border-primary/40 transition-colors block">
+            {inner}
+          </Link>
+        ) : (
+          <div key={item.label} className="bg-card border border-border rounded-lg p-4">
+            {inner}
           </div>
-          <p className="text-2xl font-bold text-foreground">{item.value}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -295,7 +307,12 @@ export default function ClubAdmin() {
           </button>
           <span className="font-display text-sm tracking-widest text-foreground uppercase">Панель управления</span>
         </div>
-        <span className="text-xs text-muted-foreground">{user.nickname}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{user.nickname}</span>
+          <Link to="/rt-manage" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#FFD700]/40 text-[#FFD700] bg-[#FFD700]/5 hover:bg-[#FFD700]/15 transition-all">
+            <Icon name="Shield" size={12} /> Admin
+          </Link>
+        </div>
       </header>
 
       <div className="flex border-b border-border bg-card overflow-x-auto">
