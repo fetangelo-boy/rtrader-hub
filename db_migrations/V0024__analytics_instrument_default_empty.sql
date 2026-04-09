@@ -1,0 +1,1 @@
+ALTER TABLE t_p67093308_rtrader_hub.analytics ALTER COLUMN instrument SET DEFAULT '';
