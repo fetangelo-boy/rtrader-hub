@@ -108,14 +108,17 @@ def handler(event: dict, context) -> dict:
         return ok({"message": "Аккаунт создан"})
 
     if action == "login":
-        email = body.get("email", "").lower().strip()
+        login_input = body.get("email", "").strip()
         password = body.get("password", "")
 
-        if not email or not password:
+        if not login_input or not password:
             return err("Email и пароль требуются")
 
         with conn.cursor() as cur:
-            cur.execute("SELECT id, password_hash, is_blocked FROM club_users WHERE email = %s", (email,))
+            if "@" in login_input:
+                cur.execute("SELECT id, password_hash, is_blocked FROM club_users WHERE email = %s", (login_input.lower(),))
+            else:
+                cur.execute("SELECT id, password_hash, is_blocked FROM club_users WHERE LOWER(nickname) = LOWER(%s)", (login_input,))
             user = cur.fetchone()
 
         if not user or user[1] != hash_password(password):
