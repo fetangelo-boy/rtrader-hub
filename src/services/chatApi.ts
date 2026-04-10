@@ -37,6 +37,7 @@ function makeInitials(name: string): string {
 
 function mapRole(role: string): User["role"] {
   if (role === "owner" || role === "admin") return "admin";
+  if (role === "vip" || role === "subscriber") return "vip";
   return "member";
 }
 
@@ -99,16 +100,21 @@ export const chatApi = {
   sendMessage: async (payload: SendMessagePayload): Promise<Message> => {
     const source = payload.source || "club";
     const url = `${CHAT_URL}?action=send&source=${source}`;
-    const headers = source === "public" ? { "Content-Type": "application/json" } : authHeaders();
+    const token = getToken();
+    const headers = source === "public"
+      ? { "Content-Type": "application/json", ...(token ? { "X-Auth-Token": token } : {}) }
+      : authHeaders();
     const body = source === "public"
       ? { text: payload.text, nickname: payload.nickname, reply_to_id: payload.replyToId ?? null }
       : { channel: payload.channelId, text: payload.text, reply_to_id: payload.replyToId ?? null };
     const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Ошибка отправки");
-    const nickname = source === "public" ? (payload.nickname || "Вы") : "Вы";
+    // Бэкенд возвращает актуальный ник и роль (для VIP — из аккаунта)
+    const actualNickname = source === "public" ? (d.nickname || payload.nickname || "Вы") : "Вы";
+    const actualRole = source === "public" ? (d.role || "member") : "member";
     const user = source === "public"
-      ? { id: nickname, name: nickname, initials: makeInitials(nickname), role: "member" as const, isOnline: true }
+      ? { id: actualNickname, name: actualNickname, initials: makeInitials(actualNickname), role: mapRole(actualRole), isOnline: true }
       : await chatApi.getCurrentUser();
     return {
       id: `msg_${Date.now()}`,

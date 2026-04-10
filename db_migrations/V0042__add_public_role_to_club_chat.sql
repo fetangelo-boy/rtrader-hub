@@ -1,0 +1,1 @@
+ALTER TABLE club_chat ADD COLUMN IF NOT EXISTS public_role VARCHAR(20) DEFAULT 'member';

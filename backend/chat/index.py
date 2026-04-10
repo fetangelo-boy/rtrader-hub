@@ -90,7 +90,7 @@ def handler(event: dict, context) -> dict:
                     SELECT id, text, created_at, public_nickname AS nickname,
                            'member' AS role, NULL AS user_id,
                            reply_to_id, reply_to_nickname, reply_to_text,
-                           public_nickname, image_url
+                           public_nickname, image_url, public_role
                     FROM club_chat
                     WHERE source = 'public' AND is_hidden = FALSE
                     ORDER BY created_at ASC LIMIT %s
@@ -98,7 +98,7 @@ def handler(event: dict, context) -> dict:
                 rows = cur.fetchall()
             messages = [{
                 "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
-                "nickname": r[9] or "Аноним", "role": "member", "user_id": None,
+                "nickname": r[9] or "Аноним", "role": r[11] or "member", "user_id": None,
                 "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8],
                 "image_url": r[10]
             } for r in rows]
@@ -107,12 +107,25 @@ def handler(event: dict, context) -> dict:
         if action == "send":
             body = json.loads(event.get("body") or "{}")
             text = body.get("text", "").strip()
-            nickname = (body.get("nickname") or "Аноним").strip()[:32]
             reply_to_id = body.get("reply_to_id")
             if not text:
                 return err("Сообщение не может быть пустым")
             if len(text) > 1000:
                 return err("Сообщение слишком длинное")
+
+            # Если передан токен — берём ник и роль из аккаунта
+            pub_token = event.get("headers", {}).get("X-Auth-Token", "")
+            pub_role = "member"
+            if pub_token:
+                vip_user = get_user_by_token(conn, pub_token)
+                if vip_user and not vip_user["is_blocked"]:
+                    nickname = vip_user["nickname"]
+                    raw_role = vip_user["role"]
+                    pub_role = "admin" if raw_role in ("owner", "admin") else "vip" if has_active_subscription(conn, vip_user["id"]) else "member"
+                else:
+                    nickname = (body.get("nickname") or "Аноним").strip()[:32]
+            else:
+                nickname = (body.get("nickname") or "Аноним").strip()[:32]
 
             reply_to_nickname = None
             reply_to_text = None
@@ -126,11 +139,11 @@ def handler(event: dict, context) -> dict:
 
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO club_chat (channel, text, source, public_nickname, reply_to_id, reply_to_nickname, reply_to_text)
-                    VALUES ('chat', %s, 'public', %s, %s, %s, %s)
-                """, (text, nickname, reply_to_id or None, reply_to_nickname, reply_to_text))
+                    INSERT INTO club_chat (channel, text, source, public_nickname, public_role, reply_to_id, reply_to_nickname, reply_to_text)
+                    VALUES ('chat', %s, 'public', %s, %s, %s, %s, %s)
+                """, (text, nickname, pub_role, reply_to_id or None, reply_to_nickname, reply_to_text))
                 conn.commit()
-            return ok({"message": "Отправлено"})
+            return ok({"message": "Отправлено", "nickname": nickname, "role": pub_role})
 
         return err("Неизвестное действие", 400)
 
