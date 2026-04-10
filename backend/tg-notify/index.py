@@ -1,13 +1,19 @@
 """
-Уведомления через @rtrader_vip_bot.
+Уведомления через @rtrader_vip_bot + email (Unisend fallback).
 POST ?action=reminders  — отправить напоминания об истечении (запускать по крону)
 POST ?action=broadcast  — массовая рассылка всем привязанным пользователям (только owner/admin)
 GET  ?action=stats      — сколько пользователей привязали TG
+
+Маршрутизация:
+  - Есть telegram_id → Telegram (приоритет)
+  - Нет telegram_id + есть email → Email через Unisend
 """
 import json
 import os
 import urllib.request
 import psycopg2
+
+SITE_URL = "https://rtrader11.ru"
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -35,6 +41,36 @@ def tg_send(chat_id, text):
     except Exception:
         return False
 
+def email_send(to_email: str, subject: str, html_body: str) -> bool:
+    api_key = os.environ.get("UNISEND_API_KEY", "")
+    if not api_key:
+        return False
+    payload = json.dumps({
+        "from_email": "noreply@rtrader11.ru",
+        "from_name": "RTrader Club",
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "html": html_body,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.unisender2.com/ru/api/sendEmail",
+        data=payload,
+        headers={"Content-Type": "application/json", "X-API-KEY": api_key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            result = json.loads(r.read())
+            return result.get("status") == "success" or "job_id" in result
+    except Exception:
+        return False
+
+def smart_notify(telegram_id, email: str, tg_text: str, email_subject: str, email_html: str) -> bool:
+    if telegram_id:
+        return tg_send(telegram_id, tg_text)
+    elif email:
+        return email_send(email, email_subject, email_html)
+    return False
+
 def get_admin(conn, token):
     with conn.cursor() as cur:
         cur.execute("""
@@ -57,80 +93,91 @@ def handler(event: dict, context) -> dict:
 
     conn = get_conn()
 
-    # --- Напоминания об истечении (вызывается по крону или вручную из админки) ---
     if action == "reminders":
         admin = get_admin(conn, auth_token)
         if not admin:
             return err("Нет доступа", 403)
 
         with conn.cursor() as cur:
-            # Истекают через 3 дня (±12 часов)
             cur.execute("""
-                SELECT u.telegram_id, u.nickname, s.expires_at, s.plan
+                SELECT u.telegram_id, u.email, u.nickname, s.expires_at, s.plan
                 FROM club_subscriptions s
                 JOIN club_users u ON s.user_id = u.id
                 WHERE s.status = 'active'
-                  AND u.telegram_id IS NOT NULL
                   AND s.expires_at BETWEEN NOW() + INTERVAL '2 days 12 hours'
                                        AND NOW() + INTERVAL '3 days 12 hours'
             """)
             three_day = cur.fetchall()
 
-            # Истекают через 1 день
             cur.execute("""
-                SELECT u.telegram_id, u.nickname, s.expires_at, s.plan
+                SELECT u.telegram_id, u.email, u.nickname, s.expires_at, s.plan
                 FROM club_subscriptions s
                 JOIN club_users u ON s.user_id = u.id
                 WHERE s.status = 'active'
-                  AND u.telegram_id IS NOT NULL
                   AND s.expires_at BETWEEN NOW() + INTERVAL '12 hours'
                                        AND NOW() + INTERVAL '1 day 12 hours'
             """)
             one_day = cur.fetchall()
 
-            # Истекают сегодня
             cur.execute("""
-                SELECT u.telegram_id, u.nickname, s.expires_at, s.plan
+                SELECT u.telegram_id, u.email, u.nickname, s.expires_at, s.plan
                 FROM club_subscriptions s
                 JOIN club_users u ON s.user_id = u.id
                 WHERE s.status = 'active'
-                  AND u.telegram_id IS NOT NULL
                   AND s.expires_at BETWEEN NOW() AND NOW() + INTERVAL '12 hours'
             """)
             today = cur.fetchall()
 
         sent = 0
+
         for row in three_day:
-            tg_id, nickname, expires_at, plan = row
-            text = (
+            tg_id, email, nickname, expires_at, plan = row
+            date_str = expires_at.strftime("%d.%m.%Y")
+            tg_text = (
                 f"⏰ <b>Через 3 дня истекает подписка</b>\n\n"
                 f"Привет, <b>{nickname}</b>!\n"
-                f"Тариф <b>{plan}</b> заканчивается <b>{expires_at.strftime('%d.%m.%Y')}</b>.\n\n"
-                f"Не забудь продлить на сайте 👉 rtrader11.ru"
+                f"Тариф <b>{plan}</b> заканчивается <b>{date_str}</b>.\n\n"
+                f"Не забудь продлить на сайте 👉 {SITE_URL}"
             )
-            if tg_send(tg_id, text):
+            email_html = (
+                f"<p>Привет, <b>{nickname}</b>!</p>"
+                f"<p>Твоя подписка на тариф <b>{plan}</b> заканчивается <b>{date_str}</b> (через 3 дня).</p>"
+                f"<p><a href='{SITE_URL}/subscribe'>Продлить подписку</a></p>"
+            )
+            if smart_notify(tg_id, email, tg_text, f"Через 3 дня истекает подписка RTrader", email_html):
                 sent += 1
 
         for row in one_day:
-            tg_id, nickname, expires_at, plan = row
-            text = (
+            tg_id, email, nickname, expires_at, plan = row
+            date_str = expires_at.strftime("%d.%m.%Y")
+            tg_text = (
                 f"⚠️ <b>Завтра истекает подписка</b>\n\n"
                 f"Привет, <b>{nickname}</b>!\n"
-                f"Тариф <b>{plan}</b> заканчивается завтра <b>{expires_at.strftime('%d.%m.%Y')}</b>.\n\n"
-                f"Продли прямо сейчас 👉 rtrader11.ru"
+                f"Тариф <b>{plan}</b> заканчивается завтра <b>{date_str}</b>.\n\n"
+                f"Продли прямо сейчас 👉 {SITE_URL}"
             )
-            if tg_send(tg_id, text):
+            email_html = (
+                f"<p>Привет, <b>{nickname}</b>!</p>"
+                f"<p>Твоя подписка на тариф <b>{plan}</b> заканчивается <b>завтра ({date_str})</b>.</p>"
+                f"<p><a href='{SITE_URL}/subscribe'>Продлить подписку</a></p>"
+            )
+            if smart_notify(tg_id, email, tg_text, f"Завтра истекает подписка RTrader", email_html):
                 sent += 1
 
         for row in today:
-            tg_id, nickname, expires_at, plan = row
-            text = (
+            tg_id, email, nickname, expires_at, plan = row
+            tg_text = (
                 f"🔴 <b>Сегодня истекает подписка</b>\n\n"
                 f"Привет, <b>{nickname}</b>!\n"
                 f"Тариф <b>{plan}</b> истекает сегодня.\n\n"
-                f"Продли подписку, чтобы сохранить доступ 👉 rtrader11.ru"
+                f"Продли подписку, чтобы сохранить доступ 👉 {SITE_URL}"
             )
-            if tg_send(tg_id, text):
+            email_html = (
+                f"<p>Привет, <b>{nickname}</b>!</p>"
+                f"<p>Твоя подписка на тариф <b>{plan}</b> <b>истекает сегодня</b>.</p>"
+                f"<p><a href='{SITE_URL}/subscribe'>Продлить подписку прямо сейчас</a></p>"
+            )
+            if smart_notify(tg_id, email, tg_text, f"Сегодня истекает подписка RTrader", email_html):
                 sent += 1
 
         return ok({
@@ -140,7 +187,6 @@ def handler(event: dict, context) -> dict:
             "today": len(today),
         })
 
-    # --- Массовая рассылка ---
     if action == "broadcast":
         admin = get_admin(conn, auth_token)
         if not admin:
@@ -148,7 +194,7 @@ def handler(event: dict, context) -> dict:
 
         body = json.loads(event.get("body") or "{}")
         text = (body.get("text") or "").strip()
-        target = body.get("target", "all")  # all | active
+        target = body.get("target", "all")
 
         if not text:
             return err("Текст сообщения обязателен")
@@ -178,7 +224,6 @@ def handler(event: dict, context) -> dict:
 
         return ok({"sent": sent, "failed": failed, "total": len(rows)})
 
-    # --- Статистика привязанных ---
     if action == "stats":
         admin = get_admin(conn, auth_token)
         if not admin:

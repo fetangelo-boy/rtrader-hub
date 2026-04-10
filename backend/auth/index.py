@@ -36,6 +36,33 @@ def tg_send(chat_id, text):
     except Exception:
         pass
 
+def email_send(to_email: str, subject: str, html_body: str):
+    api_key = os.environ.get("UNISEND_API_KEY", "")
+    if not api_key:
+        return
+    payload = json.dumps({
+        "from_email": "noreply@rtrader11.ru",
+        "from_name": "RTrader Club",
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "html": html_body,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.unisender2.com/ru/api/sendEmail",
+        data=payload,
+        headers={"Content-Type": "application/json", "X-API-KEY": api_key},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except Exception:
+        pass
+
+def smart_notify(telegram_id, email: str, tg_text: str, email_subject: str, email_html: str):
+    if telegram_id:
+        tg_send(telegram_id, tg_text)
+    elif email:
+        email_send(email, email_subject, email_html)
+
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -158,14 +185,20 @@ def handler(event: dict, context) -> dict:
 
             conn.commit()
 
-        if tg_id:
-            tg_send(tg_id, (
-                f"✅ <b>Регистрация прошла успешно!</b>\n\n"
-                f"Привет, <b>{nickname}</b>! Твой Telegram привязан к аккаунту.\n\n"
-                f"Теперь оформи подписку, чтобы получить доступ в клуб:\n"
-                f"👉 <a href=\"{SITE_URL}/subscribe\">{SITE_URL}/subscribe</a>\n\n"
-                f"/status — проверить статус подписки"
-            ))
+        tg_text = (
+            f"✅ <b>Регистрация прошла успешно!</b>\n\n"
+            f"Привет, <b>{nickname}</b>! Твой Telegram привязан к аккаунту.\n\n"
+            f"Теперь оформи подписку, чтобы получить доступ в клуб:\n"
+            f"👉 <a href=\"{SITE_URL}/subscribe\">{SITE_URL}/subscribe</a>\n\n"
+            f"/status — проверить статус подписки"
+        )
+        email_html = (
+            f"<p>Привет, <b>{nickname}</b>!</p>"
+            f"<p>Ты успешно зарегистрировался в RTrader Club.</p>"
+            f"<p>Оформи подписку, чтобы получить доступ: "
+            f"<a href='{SITE_URL}/subscribe'>{SITE_URL}/subscribe</a></p>"
+        )
+        smart_notify(tg_id, email, tg_text, "Добро пожаловать в RTrader Club!", email_html)
 
         return ok({"message": "Аккаунт создан", "tg_linked": tg_id is not None})
 
