@@ -61,7 +61,7 @@ function MiniDashboard({ quotes, content }: { quotes: Quote[], content?: Record<
         <div className="flex items-center gap-2 mt-1.5">
           <span className="w-1.5 h-1.5 rounded-full inline-block animate-pulse"
             style={{ background: imoex ? "#4ade80" : "rgba(255,215,0,0.4)" }} />
-          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.25)" }}>
+          <span className="text-[10px]" style={{ color: "rgba(255,215,0,0.55)" }}>
             {imoex ? "МосБиржа · задержка 15 мин" : "МосБиржа закрыта"}
           </span>
         </div>
@@ -77,7 +77,7 @@ function MiniDashboard({ quotes, content }: { quotes: Quote[], content?: Record<
                 style={{ color: "#FFD700", textShadow: "0 0 8px rgba(255,215,0,0.3)" }}>
                 {content?.[item.key] ?? "—"}
               </div>
-              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{item.label}</div>
+              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>{item.label}</div>
             </div>
           ))}
         </div>
@@ -91,15 +91,14 @@ function MiniDashboard({ quotes, content }: { quotes: Quote[], content?: Record<
             return (
               <div key={t.name} className="flex items-center justify-between">
                 <span className="text-xs font-russo font-bold w-14"
-                  style={{ color: neon, textShadow: `0 0 8px ${neon}99` }}>
+                  style={{ color: neon }}>
                   {t.name}
                 </span>
                 <span className="text-xs font-semibold flex-1 text-center"
-                  style={{ color: "rgba(255,215,0,0.55)" }}>
+                  style={{ color: "rgba(255,215,0,0.8)" }}>
                   {t.price}
                 </span>
-                <span className={`text-xs font-bold ${t.up ? "text-green-400" : "text-red-400"}`}
-                  style={{ textShadow: t.up ? "0 0 7px rgba(74,222,128,0.5)" : "0 0 7px rgba(248,113,113,0.5)" }}>
+                <span className={`text-xs font-bold ${t.up ? "text-green-400" : "text-red-400"}`}>
                   {t.change}
                 </span>
               </div>
