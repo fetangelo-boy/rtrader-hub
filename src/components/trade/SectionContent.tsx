@@ -7,6 +7,7 @@ import func2url from "../../../backend/func2url.json";
 
 const CHAT_URL = (func2url as Record<string, string>).chat;
 const SUBS_URL = (func2url as Record<string, string>).subscriptions;
+const TG_BOT_URL = (func2url as Record<string, string>)["tg-vip-bot"];
 const POLL_INTERVAL = 5000;
 
 interface ChatMessage {
@@ -284,6 +285,32 @@ export function SubscribeSection() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [tgLinked, setTgLinked] = useState<boolean | null>(null);
+  const [tgLinkLoading, setTgLinkLoading] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token } })
+      .then(r => r.json())
+      .then(d => setTgLinked(d.linked))
+      .catch(() => {});
+  }, [token]);
+
+  const handleConnectTg = async () => {
+    setTgLinkLoading(true);
+    try {
+      const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
+      const d = await r.json();
+      if (d.url) window.open(d.url, "_blank");
+      setTimeout(() => {
+        fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token || "" } })
+          .then(r => r.json())
+          .then(d => setTgLinked(d.linked))
+          .catch(() => {});
+      }, 5000);
+    } finally { setTgLinkLoading(false); }
+  };
+
   const plan = PLANS.find(p => p.id === selectedPlan)!;
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -337,6 +364,29 @@ export function SubscribeSection() {
           Ваш чек получен. Администратор проверит оплату и откроет доступ в течение нескольких часов.
           По вопросам: {PAYMENT_DETAILS.adminTelegram}
         </p>
+
+        {tgLinked === false && (
+          <div className="w-full max-w-sm bg-[#29b6f6]/8 border border-[#29b6f6]/30 rounded-xl p-4 space-y-3 text-left">
+            <p className="text-sm text-[#29b6f6] font-medium">Подключите Telegram</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Оплата прошла. Подключите Telegram, чтобы автоматически активировать VIP‑доступ.
+            </p>
+            <button
+              onClick={handleConnectTg}
+              disabled={tgLinkLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <Icon name="Send" size={15} />
+              {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
+            </button>
+          </div>
+        )}
+        {tgLinked === true && (
+          <div className="flex items-center gap-2 rounded-lg bg-green/10 border border-green/20 px-4 py-3 w-full max-w-sm">
+            <Icon name="CheckCircle" size={15} className="text-green shrink-0" />
+            <p className="text-sm text-green font-medium">Telegram уже привязан — доступ откроется автоматически</p>
+          </div>
+        )}
       </div>
     );
   }
@@ -399,6 +449,32 @@ export function SubscribeSection() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {tgLinked === false && (
+          <div className="bg-[#29b6f6]/8 border border-[#29b6f6]/30 rounded-xl p-4 space-y-2">
+            <p className="text-sm text-[#29b6f6] font-medium flex items-center gap-2">
+              <Icon name="Send" size={14} />
+              Подключите Telegram заранее
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Если Telegram уже привязан, доступ откроется автоматически сразу после проверки оплаты.
+            </p>
+            <button
+              onClick={handleConnectTg}
+              disabled={tgLinkLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-xs font-semibold transition-colors disabled:opacity-60"
+            >
+              <Icon name="Send" size={13} />
+              {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
+            </button>
+          </div>
+        )}
+        {tgLinked === true && (
+          <div className="flex items-center gap-2 rounded-lg bg-green/10 border border-green/20 px-4 py-3">
+            <Icon name="CheckCircle" size={15} className="text-green shrink-0" />
+            <p className="text-xs text-green font-medium">Telegram привязан — доступ откроется автоматически</p>
+          </div>
+        )}
 
         <button
           onClick={handleSubmit}
