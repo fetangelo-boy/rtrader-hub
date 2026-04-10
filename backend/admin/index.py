@@ -21,6 +21,9 @@
 ?action=chat_ban_nick      — забанить публичный ник (POST) {nickname}  → скрывает все его сообщения
 ?action=chat_unban_nick    — разбанить публичный ник (POST) {nickname}
 ?action=chat_banned_nicks  — список забаненных ников (GET)
+?action=stop_words         — список стоп-слов (GET)
+?action=stop_word_add      — добавить стоп-слово (POST) {word, category}
+?action=stop_word_toggle   — включить/выключить стоп-слово (POST) {word_id, is_active}
 """
 import json
 import os
@@ -506,6 +509,55 @@ def handler(event: dict, context) -> dict:
             rows = cur.fetchall()
         bans = [{"nickname": r[0], "banned_at": r[1].isoformat(), "banned_by": r[2]} for r in rows]
         return ok({"bans": bans})
+
+    # ── Стоп-слова автомодерации ─────────────────────────────────────────────────
+
+    if action == "stop_words":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, word, category, is_active, added_at, u.nickname
+                FROM chat_stop_words s
+                LEFT JOIN club_users u ON s.added_by = u.id
+                ORDER BY category, word
+            """)
+            rows = cur.fetchall()
+        words = [{"id": r[0], "word": r[1], "category": r[2], "is_active": r[3],
+                  "added_at": r[4].isoformat(), "added_by": r[5]} for r in rows]
+        return ok({"words": words})
+
+    if action == "stop_word_add":
+        word = (body.get("word") or "").strip().lower()
+        category = body.get("category", "spam")
+        if not word:
+            return err("word обязателен")
+        if len(word) > 128:
+            return err("Слово слишком длинное")
+        if category not in ("spam", "profanity", "other"):
+            category = "other"
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO chat_stop_words (word, category, is_active, added_by)
+                VALUES (%s, %s, TRUE, %s)
+                ON CONFLICT (LOWER(word)) DO UPDATE SET is_active = TRUE, category = EXCLUDED.category
+                RETURNING id
+            """, (word, category, user["id"]))
+            word_id = cur.fetchone()[0]
+            conn.commit()
+        return ok({"message": f"Стоп-слово «{word}» добавлено", "id": word_id})
+
+    if action == "stop_word_toggle":
+        word_id = body.get("word_id")
+        is_active = body.get("is_active")
+        if word_id is None or is_active is None:
+            return err("word_id и is_active обязательны")
+        with conn.cursor() as cur:
+            cur.execute("UPDATE chat_stop_words SET is_active = %s WHERE id = %s RETURNING word", (bool(is_active), word_id))
+            row = cur.fetchone()
+            if not row:
+                return err("Стоп-слово не найдено")
+            conn.commit()
+        status = "включено" if is_active else "отключено"
+        return ok({"message": f"Стоп-слово «{row[0]}» {status}"})
 
     conn.close()
     return err("Неизвестное действие", 400)

@@ -23,6 +23,15 @@ interface BannedNick {
   banned_by: string | null;
 }
 
+interface StopWord {
+  id: number;
+  word: string;
+  category: string;
+  is_active: boolean;
+  added_at: string;
+  added_by: string | null;
+}
+
 function authHeaders() {
   return { "Content-Type": "application/json", "X-Auth-Token": getAdminToken() };
 }
@@ -47,16 +56,31 @@ const ROLE_BADGE: Record<string, string> = {
   member: "bg-white/5 text-white/40 border-white/10",
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  spam: "Спам",
+  profanity: "Мат",
+  other: "Прочее",
+};
+
+const CATEGORY_COLOR: Record<string, string> = {
+  spam: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  profanity: "bg-red-500/10 text-red-400 border-red-500/20",
+  other: "bg-white/5 text-white/40 border-white/10",
+};
+
 export default function AdminChat() {
   const [source, setSource] = useState<"public" | "club">("public");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [bans, setBans] = useState<BannedNick[]>([]);
-  const [tab, setTab] = useState<"messages" | "bans">("messages");
+  const [stopWords, setStopWords] = useState<StopWord[]>([]);
+  const [tab, setTab] = useState<"messages" | "bans" | "stopwords">("messages");
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
+  const [newWord, setNewWord] = useState("");
+  const [newCategory, setNewCategory] = useState<"spam" | "profanity" | "other">("spam");
 
   const toast = (msg: string) => {
     setToastMsg(msg);
@@ -80,8 +104,15 @@ export default function AdminChat() {
     setBans(data.bans || []);
   }, []);
 
+  const fetchStopWords = useCallback(async () => {
+    const res = await fetch(`${ADMIN_URL}?action=stop_words`, { headers: authHeaders() });
+    const data = await res.json();
+    setStopWords(data.words || []);
+  }, []);
+
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
   useEffect(() => { if (tab === "bans") fetchBans(); }, [tab, fetchBans]);
+  useEffect(() => { if (tab === "stopwords") fetchStopWords(); }, [tab, fetchStopWords]);
 
   const deleteOne = async (id: number) => {
     await fetch(`${ADMIN_URL}?action=chat_delete`, {
@@ -127,6 +158,29 @@ export default function AdminChat() {
     fetchBans();
   };
 
+  const addStopWord = async () => {
+    const word = newWord.trim().toLowerCase();
+    if (!word) return;
+    const res = await fetch(`${ADMIN_URL}?action=stop_word_add`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ word, category: newCategory }),
+    });
+    const data = await res.json();
+    toast(data.message || "Добавлено");
+    setNewWord("");
+    fetchStopWords();
+  };
+
+  const toggleStopWord = async (id: number, isActive: boolean) => {
+    const res = await fetch(`${ADMIN_URL}?action=stop_word_toggle`, {
+      method: "POST", headers: authHeaders(),
+      body: JSON.stringify({ word_id: id, is_active: isActive }),
+    });
+    const data = await res.json();
+    toast(data.message || "Обновлено");
+    setStopWords((prev) => prev.map((w) => w.id === id ? { ...w, is_active: isActive } : w));
+  };
+
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -163,6 +217,13 @@ export default function AdminChat() {
           >
             <Icon name="Ban" size={13} className="inline mr-1" />Баны
             {bans.length > 0 && <span className="ml-1 bg-red-500/20 text-red-400 text-[10px] px-1.5 rounded-full">{bans.length}</span>}
+          </button>
+          <button
+            onClick={() => setTab("stopwords")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${tab === "stopwords" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "text-white/40 border-white/10 hover:text-white"}`}
+          >
+            <Icon name="Filter" size={13} className="inline mr-1" />Стоп-слова
+            <span className="ml-1 bg-white/10 text-white/40 text-[10px] px-1.5 rounded-full">{stopWords.filter(w => w.is_active).length}</span>
           </button>
         </div>
       </div>
@@ -338,6 +399,81 @@ export default function AdminChat() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "stopwords" && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-white/30">Сообщения с этими словами автоматически скрываются, администратор получает уведомление в Telegram.</p>
+            <button onClick={fetchStopWords} className="p-2 rounded-lg border border-white/10 text-white/40 hover:text-white hover:bg-white/5 transition-all" title="Обновить">
+              <Icon name="RefreshCw" size={14} />
+            </button>
+          </div>
+
+          {/* Форма добавления */}
+          <div className="flex gap-2 items-center flex-wrap p-3 rounded-xl bg-white/3 border border-white/8">
+            <input
+              value={newWord}
+              onChange={(e) => setNewWord(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addStopWord()}
+              placeholder="Новое стоп-слово или фраза..."
+              className="flex-1 min-w-[160px] bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/25 outline-none focus:border-orange-400/40"
+            />
+            <select
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value as "spam" | "profanity" | "other")}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 outline-none focus:border-orange-400/40"
+            >
+              <option value="spam">Спам</option>
+              <option value="profanity">Мат</option>
+              <option value="other">Прочее</option>
+            </select>
+            <button
+              onClick={addStopWord}
+              disabled={!newWord.trim()}
+              className="px-4 py-2 rounded-lg text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/20 hover:bg-orange-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <Icon name="Plus" size={13} className="inline mr-1" />Добавить
+            </button>
+          </div>
+
+          {/* Список стоп-слов */}
+          {stopWords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-white/25">
+              <Icon name="Filter" size={32} />
+              <span className="text-sm">Стоп-слов нет</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-1.5">
+              {(["spam", "profanity", "other"] as const).map((cat) => {
+                const catWords = stopWords.filter((w) => w.category === cat);
+                if (!catWords.length) return null;
+                return (
+                  <div key={cat}>
+                    <div className="text-[11px] text-white/25 uppercase tracking-widest px-1 pb-1 pt-2">{CATEGORY_LABELS[cat]}</div>
+                    <div className="flex flex-col gap-1">
+                      {catWords.map((w) => (
+                        <div key={w.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border transition-all ${w.is_active ? "bg-white/3 border-white/8" : "bg-white/1 border-white/4 opacity-40"}`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium shrink-0 ${CATEGORY_COLOR[w.category]}`}>
+                            {CATEGORY_LABELS[w.category]}
+                          </span>
+                          <code className="flex-1 text-sm text-white/80 font-mono">{w.word}</code>
+                          {w.added_by && <span className="text-[11px] text-white/20 shrink-0">от {w.added_by}</span>}
+                          <button
+                            onClick={() => toggleStopWord(w.id, !w.is_active)}
+                            className={`shrink-0 text-xs px-2.5 py-1 rounded-lg border transition-all ${w.is_active ? "border-white/10 text-white/30 hover:text-red-400 hover:border-red-400/20" : "border-green-400/20 text-green-400/60 hover:text-green-400"}`}
+                          >
+                            {w.is_active ? "Выкл" : "Вкл"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

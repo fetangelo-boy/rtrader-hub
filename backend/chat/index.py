@@ -2,12 +2,19 @@
 Чат по каналам.
 source=club  — VIP-клуб, требует токен + подписку
 source=public — публичный чат основного сайта, без авторизации (nickname в теле)
+
+Автомодерация: сообщения проверяются по стоп-словам из chat_stop_words.
+При срабатывании: сообщение скрывается, администратор получает уведомление в Telegram.
 """
 import json
 import os
 import base64
 import uuid
+import re
+import urllib.request
 import psycopg2
+
+ADMIN_TG_ID = 716116024
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -50,6 +57,46 @@ def has_active_subscription(conn, user_id):
             LIMIT 1
         """, (user_id,))
         return cur.fetchone() is not None
+
+def tg_send_admin(text: str):
+    token = os.environ.get("TELEGRAM_VIP_BOT_TOKEN", "")
+    if not token:
+        return
+    payload = json.dumps({"chat_id": ADMIN_TG_ID, "text": text, "parse_mode": "HTML"}).encode()
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload, headers={"Content-Type": "application/json"}
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
+
+def get_stop_words(conn) -> list:
+    with conn.cursor() as cur:
+        cur.execute("SELECT word FROM chat_stop_words WHERE is_active = TRUE")
+        return [row[0].lower() for row in cur.fetchall()]
+
+def check_spam(text: str, stop_words: list) -> str | None:
+    text_lower = text.lower()
+    for word in stop_words:
+        if word in text_lower:
+            return word
+    return None
+
+def notify_admin_spam(nickname: str, source: str, text: str, triggered_word: str, channel: str = ""):
+    channel_label = f" (#{channel})" if channel else ""
+    src_label = "публичный чат" if source == "public" else f"VIP-клуб{channel_label}"
+    preview = text[:200] + ("..." if len(text) > 200 else "")
+    msg = (
+        f"🚨 <b>Автомодерация сработала</b>\n\n"
+        f"👤 Ник: <b>{nickname}</b>\n"
+        f"📍 Источник: {src_label}\n"
+        f"🔍 Стоп-слово: <code>{triggered_word}</code>\n\n"
+        f"💬 Сообщение:\n<i>{preview}</i>\n\n"
+        f"Сообщение автоматически скрыто."
+    )
+    tg_send_admin(msg)
 
 def upload_image_to_s3(image_b64: str, mime: str) -> str:
     import boto3
@@ -134,6 +181,11 @@ def handler(event: dict, context) -> dict:
                 if cur.fetchone():
                     return err("Вам запрещено писать в чат")
 
+            # Автомодерация: проверяем стоп-слова
+            stop_words = get_stop_words(conn)
+            triggered_word = check_spam(text, stop_words)
+            is_auto_hidden = triggered_word is not None
+
             reply_to_nickname = None
             reply_to_text = None
             if reply_to_id:
@@ -146,10 +198,15 @@ def handler(event: dict, context) -> dict:
 
             with conn.cursor() as cur:
                 cur.execute("""
-                    INSERT INTO club_chat (channel, text, source, public_nickname, public_role, reply_to_id, reply_to_nickname, reply_to_text)
-                    VALUES ('chat', %s, 'public', %s, %s, %s, %s, %s)
-                """, (text, nickname, pub_role, reply_to_id or None, reply_to_nickname, reply_to_text))
+                    INSERT INTO club_chat (channel, text, source, public_nickname, public_role, reply_to_id, reply_to_nickname, reply_to_text, is_hidden)
+                    VALUES ('chat', %s, 'public', %s, %s, %s, %s, %s, %s)
+                """, (text, nickname, pub_role, reply_to_id or None, reply_to_nickname, reply_to_text, is_auto_hidden))
                 conn.commit()
+
+            if is_auto_hidden:
+                notify_admin_spam(nickname, "public", text, triggered_word)
+                return ok({"message": "Отправлено", "nickname": nickname, "role": pub_role})
+
             return ok({"message": "Отправлено", "nickname": nickname, "role": pub_role})
 
         return err("Неизвестное действие", 400)
@@ -230,12 +287,24 @@ def handler(event: dict, context) -> dict:
                     reply_to_text = ref[0][:200]
                     reply_to_nickname = ref[1]
 
+        # Автомодерация: проверяем стоп-слова (только для не-привилегированных)
+        is_auto_hidden = False
+        triggered_word = None
+        if not is_privileged:
+            stop_words = get_stop_words(conn)
+            triggered_word = check_spam(text or "", stop_words)
+            is_auto_hidden = triggered_word is not None
+
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text, image_url)
-                VALUES (%s, %s, %s, 'club', %s, %s, %s, %s)
-            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text, image_url))
+                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text, image_url, is_hidden)
+                VALUES (%s, %s, %s, 'club', %s, %s, %s, %s, %s)
+            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text, image_url, is_auto_hidden))
             conn.commit()
+
+        if is_auto_hidden:
+            notify_admin_spam(user["nickname"], "club", text or "", triggered_word, channel)
+
         return ok({"message": "Отправлено"})
 
     if action == "delete":
