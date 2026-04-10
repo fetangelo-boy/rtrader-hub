@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import HubNav from "@/components/HubNav";
 import { useQuotes, type Quote } from "@/hooks/useQuotes";
+import { useHomeContent } from "@/hooks/useHomeContent";
 import {
   NAV_ITEMS, TICKER_ITEMS, STATS, SECTIONS,
   Reveal, Sparkline, VIP_URL, TG_URL,
@@ -16,10 +17,10 @@ interface IndexHeroProps {
   navTo: (href: string, isRoute?: boolean) => void;
 }
 
-const MINI_STATS = [
-  { val: "2 500+", icon: "Users", label: "участников", color: "#00E5FF" },
-  { val: "7 лет", icon: "Clock", label: "на рынке", color: "#9B30FF" },
-  { val: "200+", icon: "FileText", label: "материалов", color: "#FFD700" },
+const MINI_STATS_DEFAULT = [
+  { key: "stats_members", icon: "Users", label: "участников", color: "#00E5FF" },
+  { key: "stats_years", icon: "Clock", label: "на рынке", color: "#9B30FF" },
+  { key: "stats_materials", icon: "FileText", label: "материалов", color: "#FFD700" },
 ];
 
 // Цвета тикеров: GAZP=cyan, LKOH=red, NVTK=purple, SBER=emerald
@@ -31,7 +32,7 @@ const TICKER_NEON: Record<string, string> = {
 };
 const TICKER_NEON_FALLBACK = ["#00E5FF", "#FF2D78", "#9B30FF", "#00FFB2"];
 
-function MiniDashboard({ quotes }: { quotes: Quote[] }) {
+function MiniDashboard({ quotes, content }: { quotes: Quote[], content?: Record<string, string> }) {
   const imoex = quotes.find(q => q.name === "IMOEX");
   const moexStocks = quotes.filter(q => q.name !== "IMOEX" && (q as Quote & { source?: string }).source === "moex");
   const list = moexStocks.length > 0 ? moexStocks.slice(0, 4) : quotes.filter(q => q.name !== "IMOEX").slice(0, 4);
@@ -69,12 +70,12 @@ function MiniDashboard({ quotes }: { quotes: Quote[] }) {
       {/* Статистика */}
       <div style={{ padding: "8px 20px" }}>
         <div className="grid grid-cols-3 gap-3">
-          {MINI_STATS.map((item) => (
+          {MINI_STATS_DEFAULT.map((item) => (
             <div key={item.label} className="flex flex-col items-center gap-1 text-center">
               <Icon name={item.icon} size={13} style={{ color: item.color, filter: `drop-shadow(0 0 5px ${item.color}88)` }} />
               <div className="font-russo text-sm leading-none"
                 style={{ color: "#FFD700", textShadow: "0 0 8px rgba(255,215,0,0.3)" }}>
-                {item.val}
+                {content?.[item.key] ?? "—"}
               </div>
               <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{item.label}</div>
             </div>
@@ -296,6 +297,7 @@ function SectionCarousel() {
 
 export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: IndexHeroProps) {
   const { data: quotes = [] } = useQuotes();
+  const { data: content } = useHomeContent();
   const tickerItems = quotes.length > 0 ? quotes : TICKER_ITEMS;
   const tickerDouble = [...tickerItems, ...tickerItems];
 
@@ -334,15 +336,13 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
               </div>
 
               <h1 className="font-russo leading-none mb-5 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-                <span className="block text-white text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl">RTrader —</span>
-                <span className="block brand-gradient text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl">трейдинговый</span>
-                <span className="block text-white text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl">супер‑портал</span>
+                <span className="block text-white text-4xl md:text-5xl xl:text-6xl 2xl:text-7xl brand-gradient">
+                  {content?.hero_title ?? "RTrader — трейдинговый портал"}
+                </span>
               </h1>
 
               <p className="text-white/55 text-base md:text-lg leading-relaxed mb-8 max-w-lg font-light animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-                Для того, кто хочет понимать рынок, расти в трейдинге,<br className="hidden sm:block" />
-                принимать осознанные решения и зарабатывать<br className="hidden sm:block" />
-                без иллюзий «лёгких денег».
+                {content?.hero_subtitle ?? "Для того, кто хочет понимать рынок, расти в трейдинге, принимать осознанные решения и зарабатывать без иллюзий «лёгких денег»."}
               </p>
 
               <div className="flex flex-wrap gap-3 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
@@ -364,7 +364,7 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
               </div>
             </div>
 
-            <MiniDashboard quotes={quotes} />
+            <MiniDashboard quotes={quotes} content={content as Record<string, string> | undefined} />
           </div>
         </div>
 

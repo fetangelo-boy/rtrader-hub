@@ -1,7 +1,8 @@
 """
 Публичный API для чтения контента сайта (без авторизации).
-GET /?section=reflections  — список видимых материалов
-GET /?action=sections      — видимость разделов навигации
+GET /?section=reflections          — список видимых материалов
+GET /?action=sections              — видимость разделов навигации
+GET /?action=content&section=home  — тексты site_content по секции
 """
 
 import json
@@ -39,6 +40,22 @@ def handler(event: dict, context) -> dict:
             "statusCode": 200,
             "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
             "body": json.dumps({"sections": sections}, ensure_ascii=False),
+        }
+
+    if params.get("action") == "content":
+        section_name = (params.get("section") or "").strip()
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            f"SELECT key, value, label FROM {SCHEMA}.site_content WHERE section = %s ORDER BY key",
+            (section_name,)
+        )
+        items = [dict(r) for r in cur.fetchall()]
+        cur.close(); conn.close()
+        return {
+            "statusCode": 200,
+            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+            "body": json.dumps({"content": items}, ensure_ascii=False),
         }
 
     section = (params.get("section") or "").strip()
