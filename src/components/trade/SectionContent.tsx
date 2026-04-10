@@ -99,14 +99,27 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
     return () => scroll.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const attachImage = (file: File) => {
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    attachImage(file);
     e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find(i => i.type.startsWith("image/"));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (file) attachImage(file);
   };
 
   const handleSend = async () => {
@@ -324,6 +337,7 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
                 if (e.key === "Escape") setReplyTo(null);
               }}
+              onPaste={handlePaste}
               placeholder={replyTo ? `Ответить ${replyTo.nickname}...` : "Написать сообщение..."}
               rows={1}
               className="flex-1 bg-input border border-border rounded px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
