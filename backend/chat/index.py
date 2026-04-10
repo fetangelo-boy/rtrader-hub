@@ -87,7 +87,7 @@ def handler(event: dict, context) -> dict:
             limit = min(int(qs.get("limit", 60)), 100)
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT id, text, created_at, reply_to_nickname AS nickname,
+                    SELECT id, text, created_at, public_nickname AS nickname,
                            'member' AS role, NULL AS user_id,
                            reply_to_id, reply_to_nickname, reply_to_text,
                            public_nickname, image_url
