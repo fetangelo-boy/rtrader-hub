@@ -54,6 +54,21 @@ def err(msg: str, status=400):
     return {"statusCode": status, "headers": {**CORS, "Content-Type": "application/json"}, "body": json.dumps({"error": msg}, ensure_ascii=False)}
 
 PLAN_DAYS = {"week": 7, "month": 30, "quarter": 90, "halfyear": 180, "loyal": 30}
+PLAN_LABELS = {"week": "Неделя", "month": "Месяц", "quarter": "Квартал", "halfyear": "Полгода", "loyal": "Лояльный"}
+
+def notify_user_approved(conn, user_id: int, plan: str, expires_at: datetime):
+    with conn.cursor() as cur:
+        cur.execute("SELECT telegram_id, nickname FROM club_users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+    if not row or not row[0]:
+        return
+    tg_send(row[0], (
+        f"✅ <b>Доступ открыт!</b>\n\n"
+        f"Привет, <b>{row[1]}</b>!\n"
+        f"Тариф: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
+        f"Действует до: <b>{expires_at.strftime('%d.%m.%Y')}</b>\n\n"
+        f"Добро пожаловать в RTrading CLUB 🚀"
+    ))
 
 def get_user_by_token(conn, token: str):
     with conn.cursor() as cur:
@@ -184,6 +199,7 @@ def handler(event: dict, context) -> dict:
                 UPDATE club_subscriptions SET status = 'active', expires_at = %s WHERE id = %s
             """, (expires_at, payment_id))
             conn.commit()
+        notify_user_approved(conn, user_id, plan, expires_at)
         return ok({"message": "Подписка активирована"})
 
     if action == "reject_payment":
@@ -297,26 +313,7 @@ def handler(event: dict, context) -> dict:
             """, (sub_id, user["id"], json.dumps({"plan": plan, "days": days, "expires_at": expires_at.isoformat()})))
             conn.commit()
 
-        # Уведомление в Telegram если привязан
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT u.telegram_id, u.nickname
-                FROM club_users u WHERE u.id = %s
-            """, (user_id,))
-            tg_row = cur.fetchone()
-
-        if tg_row and tg_row[0]:
-            tg_send(tg_row[0],
-                f"🎉 <b>Подписка активирована!</b>\n\n"
-                f"Привет, <b>{tg_row[1]}</b>!\n"
-                f"Тариф активен до <b>{expires_at.strftime('%d.%m.%Y')}</b>.\n\n"
-                f"Заходи в клуб 👉 rtrader11.ru/club"
-            )
-        else:
-            # Telegram не привязан — напоминаем через бота если есть telegram_id,
-            # иначе просто пропускаем (пользователь увидит подсказку в профиле)
-            pass
-
+        notify_user_approved(conn, user_id, plan, expires_at)
         return ok({"message": f"Доступ выдан до {expires_at.strftime('%d.%m.%Y')}", "sub_id": sub_id})
 
     if action == "set_expires":
@@ -325,15 +322,19 @@ def handler(event: dict, context) -> dict:
         if not sub_id or not new_expires:
             return err("subscription_id и expires_at обязательны")
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM club_subscriptions WHERE id = %s", (sub_id,))
-            if not cur.fetchone():
+            cur.execute("SELECT s.user_id, s.plan FROM club_subscriptions s WHERE s.id = %s", (sub_id,))
+            row = cur.fetchone()
+            if not row:
                 return err("Подписка не найдена")
+            sub_user_id, sub_plan = row
             cur.execute("UPDATE club_subscriptions SET expires_at = %s, status = 'active' WHERE id = %s", (new_expires, sub_id))
             cur.execute("""
                 INSERT INTO club_subscriptions_log (subscription_id, admin_id, action, details)
                 VALUES (%s, %s, 'set_expires', %s)
             """, (sub_id, user["id"], json.dumps({"expires_at": new_expires})))
             conn.commit()
+        expires_dt = datetime.fromisoformat(new_expires.replace("Z", "+00:00")) if isinstance(new_expires, str) else new_expires
+        notify_user_approved(conn, sub_user_id, sub_plan or "month", expires_dt)
         return ok({"message": "Дата окончания обновлена"})
 
     if action == "deactivate":
