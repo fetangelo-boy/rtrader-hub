@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import MiniFooter from "@/components/MiniFooter";
 
 export default function Paywall() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function Paywall() {
           </a>
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import HubNav from "@/components/HubNav";
 import { vipData } from "@/data/vip";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import MiniFooter from "@/components/MiniFooter";
 
 const TG_URL = "https://t.me/RTrader11";
 
@@ -118,6 +119,7 @@ export default function Vip() {
           </Link>
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }

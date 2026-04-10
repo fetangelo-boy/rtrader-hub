@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import HubNav from "@/components/HubNav";
 import { RenderText } from "@/lib/renderText";
 import MediaGallery from "@/components/MediaGallery";
+import MiniFooter from "@/components/MiniFooter";
 
 const TG_URL = "https://t.me/RTrader11";
 const VIP_URL = "/vip";
@@ -218,6 +219,7 @@ export default function Analytics() {
           </div>
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }

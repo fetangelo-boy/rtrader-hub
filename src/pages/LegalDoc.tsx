@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
+import MiniFooter from "@/components/MiniFooter";
 
 const PUBLIC_CONTENT_URL = (func2url as Record<string, string>)["public-content"];
 
@@ -90,6 +91,7 @@ export default function LegalDoc() {
           ))}
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }

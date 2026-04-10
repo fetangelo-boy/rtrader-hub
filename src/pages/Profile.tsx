@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import func2url from "../../backend/func2url.json";
 import { cn } from "@/lib/utils";
+import MiniFooter from "@/components/MiniFooter";
 
 const AUTH_URL = (func2url as Record<string, string>).auth;
 const TG_BOT_URL = (func2url as Record<string, string>)["tg-vip-bot"];
@@ -254,6 +255,7 @@ export default function Profile() {
           Выйти из аккаунта
         </Button>
       </div>
+      <MiniFooter />
     </div>
   );
 }

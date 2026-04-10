@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { NAV_ITEMS, ECOSYSTEM } from "./IndexShared";
+import MiniFooter from "@/components/MiniFooter";
 
 interface IndexFooterProps {
   navTo: (href: string, isRoute?: boolean) => void;
@@ -42,7 +43,7 @@ export default function IndexFooter({ navTo }: IndexFooterProps) {
         </div>
 
         <div className="border-t border-white/5 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/18">
-          <span>© 2026 RTrader. Материалы носят информационный характер и не являются инвестиционными рекомендациями.</span>
+          <span>Материалы носят информационный характер и не являются инвестиционными рекомендациями.</span>
           <div className="flex items-center gap-4 flex-wrap justify-center">
             <Link to="/legal/terms" className="hover:text-white/50 transition-colors">Пользовательское соглашение</Link>
             <Link to="/legal/privacy" className="hover:text-white/50 transition-colors">Политика конфиденциальности</Link>
@@ -50,6 +51,7 @@ export default function IndexFooter({ navTo }: IndexFooterProps) {
           </div>
         </div>
       </div>
+      <MiniFooter />
     </footer>
   );
 }

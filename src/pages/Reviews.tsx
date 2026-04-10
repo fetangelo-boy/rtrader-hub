@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { reviewsData } from "@/data/reviews";
 import HubNav from "@/components/HubNav";
+import MiniFooter from "@/components/MiniFooter";
 
 const TG_URL = "https://t.me/RTrader11";
 const REVIEWS_API_URL = "https://functions.poehali.dev/e24a5560-b208-4c16-96e6-99c45f3e905e";
@@ -223,6 +224,7 @@ export default function Reviews() {
           </div>
         )}
       </div>
+      <MiniFooter />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import HubNav from "@/components/HubNav";
+import MiniFooter from "@/components/MiniFooter";
 
 const API_URL = "https://functions.poehali.dev/1177521b-9812-4631-b339-b216a5d91c4e";
 
@@ -166,6 +167,7 @@ export default function Reflections() {
           </div>
         )}
       </div>
+      <MiniFooter />
     </div>
   );
 }

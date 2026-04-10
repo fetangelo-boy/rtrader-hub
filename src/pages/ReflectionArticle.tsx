@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { RenderText } from "@/lib/renderText";
 import HubNav from "@/components/HubNav";
 import MediaGallery from "@/components/MediaGallery";
+import MiniFooter from "@/components/MiniFooter";
 
 const API_URL = "https://functions.poehali.dev/1177521b-9812-4631-b339-b216a5d91c4e";
 const TG_URL = "https://t.me/RTrader11";
@@ -122,6 +123,7 @@ export default function ReflectionArticle() {
           </a>
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }

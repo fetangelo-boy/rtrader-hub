@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { RenderText } from "@/lib/renderText";
 import HubNav from "@/components/HubNav";
 import MediaGallery from "@/components/MediaGallery";
+import MiniFooter from "@/components/MiniFooter";
 
 const TG_URL = "https://t.me/RTrader11";
 const VIP_URL = "/vip";
@@ -192,6 +193,7 @@ export default function Education() {
           </div>
         </div>
       </div>
+      <MiniFooter />
     </div>
   );
 }
