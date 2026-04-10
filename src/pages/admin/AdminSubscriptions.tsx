@@ -284,9 +284,28 @@ export default function AdminSubscriptions() {
                       </span>
                     )}
                     {sub.telegram_id ? (
-                      <span className="text-xs flex items-center gap-1 text-[#29b6f6]">
-                        <Icon name="Send" size={11} />
-                        {sub.telegram_username ? `@${sub.telegram_username}` : "привязан"}
+                      <span className="text-xs flex items-center gap-1">
+                        <Icon name="Send" size={11} style={{ color: "#29b6f6" }} />
+                        {sub.telegram_username ? (
+                          <a
+                            href={`https://t.me/${sub.telegram_username}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#29b6f6] hover:underline"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            @{sub.telegram_username}
+                          </a>
+                        ) : (
+                          <span className="text-[#29b6f6]">Telegram привязан</span>
+                        )}
+                        <button
+                          title="Скопировать Telegram ID"
+                          onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(sub.telegram_username ? `@${sub.telegram_username}` : String(sub.telegram_id)); flash(`Скопировано: ${sub.telegram_username ? "@" + sub.telegram_username : sub.telegram_id}`); }}
+                          className="text-white/20 hover:text-[#29b6f6] transition-colors ml-0.5"
+                        >
+                          <Icon name="Copy" size={11} />
+                        </button>
                       </span>
                     ) : (
                       <span className="text-xs flex items-center gap-1 text-white/20">
