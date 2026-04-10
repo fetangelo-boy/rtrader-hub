@@ -1,0 +1,1 @@
+ALTER TABLE club_chat ADD COLUMN IF NOT EXISTS image_url TEXT;

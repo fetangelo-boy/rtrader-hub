@@ -5,6 +5,8 @@ source=public — публичный чат основного сайта, бе�
 """
 import json
 import os
+import base64
+import uuid
 import psycopg2
 
 CORS = {
@@ -15,6 +17,9 @@ CORS = {
 
 READONLY_CHANNELS = {"intraday", "video", "access_info", "knowledge"}
 VALID_CHANNELS = {"intraday", "chat", "metals", "oil", "products", "video", "tech", "access_info", "knowledge"}
+
+ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -46,6 +51,24 @@ def has_active_subscription(conn, user_id):
         """, (user_id,))
         return cur.fetchone() is not None
 
+def upload_image_to_s3(image_b64: str, mime: str) -> str:
+    import boto3
+    data = base64.b64decode(image_b64)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("Файл слишком большой (макс. 10 МБ)")
+    if mime not in ALLOWED_MIME:
+        raise ValueError("Недопустимый формат. Только JPEG, PNG, GIF, WebP")
+    ext = mime.split("/")[1].replace("jpeg", "jpg")
+    key = f"chat/{uuid.uuid4().hex}.{ext}"
+    s3 = boto3.client(
+        "s3",
+        endpoint_url="https://bucket.poehali.dev",
+        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+    )
+    s3.put_object(Bucket="files", Key=key, Body=data, ContentType=mime)
+    return f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
 def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
@@ -67,7 +90,7 @@ def handler(event: dict, context) -> dict:
                     SELECT id, text, created_at, reply_to_nickname AS nickname,
                            'member' AS role, NULL AS user_id,
                            reply_to_id, reply_to_nickname, reply_to_text,
-                           public_nickname
+                           public_nickname, image_url
                     FROM club_chat
                     WHERE source = 'public' AND is_hidden = FALSE
                     ORDER BY created_at ASC LIMIT %s
@@ -76,7 +99,8 @@ def handler(event: dict, context) -> dict:
             messages = [{
                 "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
                 "nickname": r[9] or "Аноним", "role": "member", "user_id": None,
-                "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8]
+                "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8],
+                "image_url": r[10]
             } for r in rows]
             return ok({"messages": messages})
 
@@ -130,7 +154,7 @@ def handler(event: dict, context) -> dict:
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT m.id, m.text, m.created_at, u.nickname, u.role, m.user_id,
-                       m.reply_to_id, m.reply_to_nickname, m.reply_to_text
+                       m.reply_to_id, m.reply_to_nickname, m.reply_to_text, m.image_url
                 FROM club_chat m
                 JOIN club_users u ON m.user_id = u.id
                 WHERE m.channel = %s AND m.source = 'club' AND m.is_hidden = FALSE
@@ -140,18 +164,32 @@ def handler(event: dict, context) -> dict:
         messages = [{
             "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
             "nickname": r[3], "role": r[4], "user_id": r[5],
-            "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8]
+            "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8],
+            "image_url": r[9]
         } for r in rows]
         return ok({"messages": messages})
+
+    if action == "upload_image":
+        body = json.loads(event.get("body") or "{}")
+        image_b64 = body.get("image_base64", "")
+        mime = body.get("mime", "image/jpeg")
+        if not image_b64:
+            return err("image_base64 обязателен")
+        try:
+            url = upload_image_to_s3(image_b64, mime)
+        except ValueError as e:
+            return err(str(e))
+        return ok({"url": url})
 
     if action == "send":
         body = json.loads(event.get("body") or "{}")
         channel = body.get("channel", "")
         text = body.get("text", "").strip()
         reply_to_id = body.get("reply_to_id")
+        image_url = body.get("image_url") or None
         if channel not in VALID_CHANNELS:
             return err("Неверный канал")
-        if not text:
+        if not text and not image_url:
             return err("Сообщение не может быть пустым")
         if len(text) > 2000:
             return err("Сообщение слишком длинное")
@@ -174,9 +212,9 @@ def handler(event: dict, context) -> dict:
 
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text)
-                VALUES (%s, %s, %s, 'club', %s, %s, %s)
-            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text))
+                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text, image_url)
+                VALUES (%s, %s, %s, 'club', %s, %s, %s, %s)
+            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text, image_url))
             conn.commit()
         return ok({"message": "Отправлено"})
 

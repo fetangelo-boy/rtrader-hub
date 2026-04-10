@@ -19,6 +19,7 @@ interface ChatMessage {
   reply_to_id?: number | null;
   reply_to_nickname?: string | null;
   reply_to_text?: string | null;
+  image_url?: string | null;
 }
 
 interface ReplyTo {
@@ -36,6 +37,10 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
   const [loading, setLoading] = useState(true);
   const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [expandedImg, setExpandedImg] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
@@ -94,15 +99,42 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
     return () => scroll.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
   const handleSend = async () => {
-    if (!msg.trim() || !canWrite || sending) return;
+    if ((!msg.trim() && !imageFile) || !canWrite || sending) return;
     setSending(true);
     setError("");
     try {
+      let uploadedImageUrl: string | null = null;
+      if (imageFile) {
+        const b64 = await new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string).split(",")[1]);
+          reader.onerror = rej;
+          reader.readAsDataURL(imageFile);
+        });
+        const upRes = await fetch(`${CHAT_URL}?action=upload_image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Auth-Token": token || "" },
+          body: JSON.stringify({ image_base64: b64, mime: imageFile.type || "image/jpeg" }),
+        });
+        const upData = await upRes.json();
+        if (!upRes.ok) { setError(upData.error || "Ошибка загрузки фото"); return; }
+        uploadedImageUrl = upData.url;
+      }
       const res = await fetch(`${CHAT_URL}?action=send`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Auth-Token": token || "" },
-        body: JSON.stringify({ channel: sectionId, text: msg.trim(), reply_to_id: replyTo?.id ?? null }),
+        body: JSON.stringify({ channel: sectionId, text: msg.trim(), reply_to_id: replyTo?.id ?? null, image_url: uploadedImageUrl }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -111,6 +143,8 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
       }
       setMsg("");
       setReplyTo(null);
+      setImageFile(null);
+      setImagePreview(null);
       await fetchMessages();
     } catch {
       setError("Ошибка отправки");
@@ -196,7 +230,15 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
                       </div>
                     </div>
                   )}
-                  <p className="text-sm text-foreground/90 break-words whitespace-pre-wrap">{m.text}</p>
+                  {m.text && <p className="text-sm text-foreground/90 break-words whitespace-pre-wrap">{m.text}</p>}
+                  {m.image_url && (
+                    <img
+                      src={m.image_url}
+                      alt="фото"
+                      className="mt-1 max-w-[260px] max-h-[300px] rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setExpandedImg(m.image_url!)}
+                    />
+                  )}
                 </div>
                 <div className={`flex gap-0.5 transition-opacity ${hoveredId === m.id ? "opacity-100" : "opacity-0"}`}>
                   {canWrite && (
@@ -225,6 +267,18 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
         <div ref={bottomRef} />
       </div>
 
+      {expandedImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setExpandedImg(null)}
+        >
+          <img src={expandedImg} alt="фото" className="max-w-full max-h-full rounded-xl object-contain" />
+          <button className="absolute top-4 right-4 text-white" onClick={() => setExpandedImg(null)}>
+            <Icon name="X" size={24} />
+          </button>
+        </div>
+      )}
+
       {canWrite && (
         <div className="p-3 border-t border-border">
           {replyTo && (
@@ -243,7 +297,26 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
             </div>
           )}
           {error && <p className="text-xs text-destructive mb-1">{error}</p>}
+          {imagePreview && (
+            <div className="relative mb-2 inline-block">
+              <img src={imagePreview} alt="превью" className="max-h-24 rounded-lg object-cover" />
+              <button
+                onClick={() => { setImageFile(null); setImagePreview(null); }}
+                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-destructive text-white flex items-center justify-center"
+              >
+                <Icon name="X" size={11} />
+              </button>
+            </div>
+          )}
+          <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImagePick} className="hidden" />
           <div className="flex items-end gap-2">
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              className="p-2 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors shrink-0"
+              title="Прикрепить фото"
+            >
+              <Icon name="ImagePlus" size={18} />
+            </button>
             <textarea
               value={msg}
               onChange={e => setMsg(e.target.value)}
@@ -257,7 +330,7 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
             />
             <button
               onClick={handleSend}
-              disabled={sending || !msg.trim()}
+              disabled={sending || (!msg.trim() && !imageFile)}
               className="p-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               <Icon name="Send" size={16} />
