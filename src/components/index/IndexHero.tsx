@@ -332,7 +332,7 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
             <div className="flex-1 min-w-0">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-semibold text-[#00E5FF] uppercase tracking-widest mb-8 animate-fade-in-up">
                 <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse inline-block" />
-                Трейдинговый супер‑портал · Мосбиржа
+                {content?.hero_badge ?? "Трейдинговый супер‑портал · Мосбиржа"}
               </div>
 
               <h1 className="font-russo leading-none mb-5 animate-fade-in-up" style={{ animationDelay: "0.1s" }}>

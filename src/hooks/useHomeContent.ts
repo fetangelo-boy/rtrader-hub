@@ -6,6 +6,7 @@ const PUBLIC_CONTENT_URL = (func2url as Record<string, string>)["public-content"
 interface HomeContent {
   hero_title: string;
   hero_subtitle: string;
+  hero_badge: string;
   stats_members: string;
   stats_years: string;
   stats_materials: string;
@@ -14,6 +15,7 @@ interface HomeContent {
 const DEFAULTS: HomeContent = {
   hero_title: "RTrader — трейдинговый портал",
   hero_subtitle: "Для того, кто хочет понимать рынок, расти в трейдинге, принимать осознанные решения и зарабатывать без иллюзий «лёгких денег».",
+  hero_badge: "Трейдинговый супер‑портал · Мосбиржа",
   stats_members: "2 500+",
   stats_years: "7 лет",
   stats_materials: "200+",
