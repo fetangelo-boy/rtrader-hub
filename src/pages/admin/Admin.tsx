@@ -16,6 +16,7 @@ import AdminStats from "./AdminStats";
 import AdminPricing from "./AdminPricing";
 import AdminBroadcast from "./AdminBroadcast";
 import AdminSections from "./AdminSections";
+import AdminChat from "./AdminChat";
 
 export default function Admin() {
   const { isAuthed, login, logout, loading, error } = useAdminAuth();
@@ -40,6 +41,7 @@ export default function Admin() {
         <Route path="stats" element={<AdminStats />} />
         <Route path="pricing" element={<AdminPricing />} />
         <Route path="broadcast" element={<AdminBroadcast />} />
+        <Route path="chat" element={<AdminChat />} />
         <Route path="sections" element={<AdminSections />} />
       </Routes>
     </AdminLayout>

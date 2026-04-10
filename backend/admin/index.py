@@ -15,6 +15,12 @@
 ?action=set_expires        — изменить дату окончания (POST) {subscription_id, expires_at}
 ?action=deactivate         — деактивировать подписку (POST) {subscription_id}
 ?action=change_plan        — изменить тариф (POST) {subscription_id, plan}
+?action=chat_messages      — сообщения чата для модерации (GET) ?source=public|club&limit=100&offset=0
+?action=chat_delete        — удалить сообщение (POST) {message_id}
+?action=chat_delete_bulk   — удалить несколько сообщений (POST) {message_ids: []}
+?action=chat_ban_nick      — забанить публичный ник (POST) {nickname}  → скрывает все его сообщения
+?action=chat_unban_nick    — разбанить публичный ник (POST) {nickname}
+?action=chat_banned_nicks  — список забаненных ников (GET)
 """
 import json
 import os
@@ -393,6 +399,113 @@ def handler(event: dict, context) -> dict:
             rows = cur.fetchall()
         history = [{"id": r[0], "action": r[1], "details": r[2], "created_at": r[3].isoformat(), "admin": r[4]} for r in rows]
         return ok({"history": history})
+
+    # ── Модерация чата ──────────────────────────────────────────────────────────
+
+    if action == "chat_messages":
+        source = qs.get("source", "public")
+        if source not in ("public", "club"):
+            source = "public"
+        limit = min(int(qs.get("limit", 100)), 200)
+        offset = int(qs.get("offset", 0))
+        search = qs.get("search", "").strip()
+        with conn.cursor() as cur:
+            if source == "public":
+                if search:
+                    cur.execute("""
+                        SELECT id, text, public_nickname, public_role, created_at, is_hidden, image_url
+                        FROM club_chat
+                        WHERE source = 'public' AND (text ILIKE %s OR public_nickname ILIKE %s)
+                        ORDER BY created_at DESC LIMIT %s OFFSET %s
+                    """, (f"%{search}%", f"%{search}%", limit, offset))
+                else:
+                    cur.execute("""
+                        SELECT id, text, public_nickname, public_role, created_at, is_hidden, image_url
+                        FROM club_chat WHERE source = 'public'
+                        ORDER BY created_at DESC LIMIT %s OFFSET %s
+                    """, (limit, offset))
+                rows = cur.fetchall()
+                messages = [{"id": r[0], "text": r[1], "nickname": r[2] or "Аноним", "role": r[3] or "member",
+                             "created_at": r[4].isoformat(), "is_hidden": r[5], "image_url": r[6],
+                             "source": "public", "user_id": None} for r in rows]
+            else:
+                if search:
+                    cur.execute("""
+                        SELECT m.id, m.text, u.nickname, u.role, m.created_at, m.is_hidden, m.image_url, m.channel, u.id
+                        FROM club_chat m JOIN club_users u ON m.user_id = u.id
+                        WHERE m.source = 'club' AND (m.text ILIKE %s OR u.nickname ILIKE %s)
+                        ORDER BY m.created_at DESC LIMIT %s OFFSET %s
+                    """, (f"%{search}%", f"%{search}%", limit, offset))
+                else:
+                    cur.execute("""
+                        SELECT m.id, m.text, u.nickname, u.role, m.created_at, m.is_hidden, m.image_url, m.channel, u.id
+                        FROM club_chat m JOIN club_users u ON m.user_id = u.id
+                        WHERE m.source = 'club'
+                        ORDER BY m.created_at DESC LIMIT %s OFFSET %s
+                    """, (limit, offset))
+                rows = cur.fetchall()
+                messages = [{"id": r[0], "text": r[1], "nickname": r[2], "role": r[3],
+                             "created_at": r[4].isoformat(), "is_hidden": r[5], "image_url": r[6],
+                             "channel": r[7], "source": "club", "user_id": r[8]} for r in rows]
+        return ok({"messages": messages, "source": source, "total": len(messages)})
+
+    if action == "chat_delete":
+        msg_id = body.get("message_id")
+        if not msg_id:
+            return err("message_id обязателен")
+        with conn.cursor() as cur:
+            cur.execute("UPDATE club_chat SET is_hidden = TRUE WHERE id = %s RETURNING id", (msg_id,))
+            if not cur.fetchone():
+                return err("Сообщение не найдено")
+            conn.commit()
+        return ok({"message": "Сообщение скрыто"})
+
+    if action == "chat_delete_bulk":
+        ids = body.get("message_ids", [])
+        if not ids or not isinstance(ids, list):
+            return err("message_ids обязателен (список)")
+        ids = [int(i) for i in ids[:100]]
+        with conn.cursor() as cur:
+            cur.execute("UPDATE club_chat SET is_hidden = TRUE WHERE id = ANY(%s)", (ids,))
+            count = cur.rowcount
+            conn.commit()
+        return ok({"message": f"Скрыто {count} сообщений", "count": count})
+
+    if action == "chat_ban_nick":
+        nickname = (body.get("nickname") or "").strip()
+        if not nickname:
+            return err("nickname обязателен")
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO chat_banned_nicks (nickname, banned_by, banned_at, is_active)
+                VALUES (%s, %s, NOW(), TRUE)
+                ON CONFLICT (nickname) DO UPDATE SET banned_by = EXCLUDED.banned_by, banned_at = NOW(), is_active = TRUE
+            """, (nickname, user["id"]))
+            cur.execute("UPDATE club_chat SET is_hidden = TRUE WHERE source = 'public' AND public_nickname = %s", (nickname,))
+            conn.commit()
+        return ok({"message": f"Ник «{nickname}» забанен, все его сообщения скрыты"})
+
+    if action == "chat_unban_nick":
+        nickname = (body.get("nickname") or "").strip()
+        if not nickname:
+            return err("nickname обязателен")
+        with conn.cursor() as cur:
+            cur.execute("UPDATE chat_banned_nicks SET is_active = FALSE WHERE nickname = %s", (nickname,))
+            conn.commit()
+        return ok({"message": f"Ник «{nickname}» разбанен"})
+
+    if action == "chat_banned_nicks":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT b.nickname, b.banned_at, u.nickname as admin_nick
+                FROM chat_banned_nicks b
+                LEFT JOIN club_users u ON b.banned_by = u.id
+                WHERE b.is_active = TRUE
+                ORDER BY b.banned_at DESC
+            """)
+            rows = cur.fetchall()
+        bans = [{"nickname": r[0], "banned_at": r[1].isoformat(), "banned_by": r[2]} for r in rows]
+        return ok({"bans": bans})
 
     conn.close()
     return err("Неизвестное действие", 400)

@@ -13,6 +13,7 @@ const NAV = [
   { href: "/rt-manage/subscriptions", label: "Подписчики", icon: "Users" },
   { href: "/rt-manage/pricing", label: "Тарифы", icon: "Tag" },
   { href: "/rt-manage/broadcast", label: "Рассылки TG", icon: "Send" },
+  { href: "/rt-manage/chat", label: "Модерация чата", icon: "ShieldAlert" },
   { href: "/rt-manage/reviews", label: "Отзывы", icon: "MessageSquare" },
   { href: "/rt-manage/sections", label: "Разделы сайта", icon: "LayoutGrid" },
   { href: "/rt-manage/content", label: "Тексты сайта", icon: "FileText" },

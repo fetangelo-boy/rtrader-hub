@@ -115,6 +115,7 @@ def handler(event: dict, context) -> dict:
 
             # Если передан токен — берём ник и роль из аккаунта
             pub_token = event.get("headers", {}).get("X-Auth-Token", "")
+
             pub_role = "member"
             if pub_token:
                 vip_user = get_user_by_token(conn, pub_token)
@@ -126,6 +127,12 @@ def handler(event: dict, context) -> dict:
                     nickname = (body.get("nickname") or "Аноним").strip()[:32]
             else:
                 nickname = (body.get("nickname") or "Аноним").strip()[:32]
+
+            # Проверяем бан ника
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM chat_banned_nicks WHERE nickname = %s AND is_active = TRUE", (nickname,))
+                if cur.fetchone():
+                    return err("Вам запрещено писать в чат")
 
             reply_to_nickname = None
             reply_to_text = None
