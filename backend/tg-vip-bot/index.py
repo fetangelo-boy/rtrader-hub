@@ -6,8 +6,9 @@ GET  ?action=status   — статус привязки
 POST ?action=unlink   — отвязать Telegram
 """
 import json, os, secrets, urllib.request, traceback
-SITE_URL = "https://rtrader11.ru"
 import psycopg2
+
+SITE_URL = "https://rtrader11.ru"
 
 CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token"}
 BOT_NAME = "rtrader_vip_bot"
@@ -57,12 +58,17 @@ def handler(event: dict, context) -> dict:
         if text.startswith("/start "):
             link_token = text.split(" ", 1)[1].strip()
             with conn.cursor() as cur:
-                cur.execute("SELECT user_id FROM tg_link_tokens WHERE token = %s AND expires_at > NOW()", (link_token,))
+                cur.execute("SELECT user_id, for_registration FROM tg_link_tokens WHERE token = %s AND expires_at > NOW()", (link_token,))
                 row = cur.fetchone()
                 if not row:
                     send(chat_id, "❌ Ссылка устарела. Сгенерируйте новую в личном кабинете.")
                     return ok({"ok": True})
-                cur.execute("UPDATE club_users SET telegram_id = %s, telegram_username = %s WHERE id = %s RETURNING nickname", (tg_id, tg_uname, row[0]))
+                user_id, for_reg = row
+                if for_reg:
+                    # Регистрационный токен — пользователь должен перейти на сайт
+                    send(chat_id, "❌ Эта ссылка для регистрации на сайте, а не для привязки. Перейди по ссылке из предыдущего сообщения.")
+                    return ok({"ok": True})
+                cur.execute("UPDATE club_users SET telegram_id = %s, telegram_username = %s WHERE id = %s RETURNING nickname", (tg_id, tg_uname, user_id))
                 nick = cur.fetchone()
                 cur.execute("UPDATE tg_link_tokens SET expires_at = NOW() WHERE token = %s", (link_token,))
                 conn.commit()
