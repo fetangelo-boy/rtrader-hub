@@ -11,12 +11,16 @@ export default function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const tgToken = searchParams.get("tg_token") || "";
+  const inviteCode = searchParams.get("invite") || "";
+
   const [form, setForm] = useState({
     nickname: "",
     email: "",
     password: "",
     gdpr_consent: false,
-    invite_code: searchParams.get("invite") || "",
+    invite_code: inviteCode,
+    tg_token: tgToken,
   });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,6 +57,13 @@ export default function Register() {
 
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
           <h2 className="text-base font-semibold text-foreground mb-5">Регистрация</h2>
+
+          {tgToken && (
+            <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-[#29b6f6]/10 border border-[#29b6f6]/30 text-sm text-[#29b6f6]">
+              <Icon name="Send" size={14} />
+              Telegram будет привязан автоматически
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive flex items-center gap-2">

@@ -31,6 +31,7 @@ interface RegisterData {
   password: string;
   gdpr_consent: boolean;
   invite_code?: string;
+  tg_token?: string;
 }
 
 interface AuthContextType {

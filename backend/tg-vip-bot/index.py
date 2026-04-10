@@ -6,6 +6,7 @@ GET  ?action=status   — статус привязки
 POST ?action=unlink   — отвязать Telegram
 """
 import json, os, secrets, urllib.request, traceback
+SITE_URL = "https://rtrader11.ru"
 import psycopg2
 
 CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token"}
@@ -69,7 +70,28 @@ def handler(event: dict, context) -> dict:
             return ok({"ok": True})
 
         if text == "/start":
-            send(chat_id, "👋 Это бот <b>RTrader VIP-клуба</b>.\n\nДля привязки аккаунта зайди в <b>Личный кабинет → Подключить Telegram</b>.")
+            # Проверяем — может пользователь уже зарегистрирован
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, nickname FROM club_users WHERE telegram_id = %s", (tg_id,))
+                existing = cur.fetchone()
+            if existing:
+                send(chat_id, f"👋 Привет, <b>{existing[1]}</b>! Твой аккаунт уже привязан.\n\n/status — статус подписки\n🌐 {SITE_URL}")
+            else:
+                # Создаём регистрационный токен
+                reg_token = secrets.token_urlsafe(24)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO tg_link_tokens (token, user_id, expires_at, for_registration, tg_id, tg_username) VALUES (%s, NULL, NOW() + INTERVAL '30 minutes', TRUE, %s, %s)",
+                        (reg_token, tg_id, tg_uname)
+                    )
+                    conn.commit()
+                reg_url = f"{SITE_URL}/register?tg_token={reg_token}"
+                send(chat_id, (
+                    f"👋 Привет! Это бот <b>RTrading CLUB</b>.\n\n"
+                    f"Для получения доступа зарегистрируйся на сайте — твой Telegram уже будет привязан автоматически:\n\n"
+                    f"👉 <a href=\"{reg_url}\">Зарегистрироваться</a>\n\n"
+                    f"Ссылка действует 30 минут."
+                ))
             return ok({"ok": True})
 
         if text == "/status":

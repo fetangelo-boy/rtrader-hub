@@ -67,6 +67,7 @@ def handler(event: dict, context) -> dict:
         nickname = body.get("nickname", "").strip()
         gdpr_consent = body.get("gdpr_consent", False)
         invite_code = body.get("invite_code", "").strip()
+        tg_token = body.get("tg_token", "").strip()
 
         if not email or not password or not nickname:
             return err("Все поля требуются")
@@ -77,10 +78,29 @@ def handler(event: dict, context) -> dict:
         if not gdpr_consent:
             return err("Необходимо согласие на обработку данных")
 
+        # Проверяем tg_token если передан
+        tg_id = None
+        tg_username = None
+        if tg_token:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT tg_id, tg_username FROM tg_link_tokens WHERE token = %s AND for_registration = TRUE AND expires_at > NOW()",
+                    (tg_token,)
+                )
+                tg_row = cur.fetchone()
+            if not tg_row:
+                return err("Ссылка из Telegram устарела или недействительна. Напишите боту /start ещё раз.")
+            tg_id, tg_username = tg_row
+
         with conn.cursor() as cur:
             cur.execute("SELECT id FROM club_users WHERE email = %s", (email,))
             if cur.fetchone():
                 return err("Email уже зарегистрирован")
+
+            if tg_id:
+                cur.execute("SELECT id FROM club_users WHERE telegram_id = %s", (tg_id,))
+                if cur.fetchone():
+                    return err("Этот Telegram уже привязан к другому аккаунту")
 
             subscription_days = 0
             if invite_code:
@@ -94,10 +114,10 @@ def handler(event: dict, context) -> dict:
 
             password_hash = hash_password(password)
             cur.execute("""
-                INSERT INTO club_users (email, password_hash, nickname, role, gdpr_consent, is_blocked)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO club_users (email, password_hash, nickname, role, gdpr_consent, is_blocked, telegram_id, telegram_username)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
-            """, (email, password_hash, nickname, "subscriber", gdpr_consent, False))
+            """, (email, password_hash, nickname, "subscriber", gdpr_consent, False, tg_id, tg_username))
             user_id = cur.fetchone()[0]
 
             if invite_code and subscription_days:
@@ -108,9 +128,12 @@ def handler(event: dict, context) -> dict:
                 """, (user_id, "invite", "active", expires_at))
                 cur.execute("UPDATE club_invites SET is_used = TRUE, used_by_user_id = %s WHERE code = %s", (user_id, invite_code))
 
+            if tg_token:
+                cur.execute("UPDATE tg_link_tokens SET expires_at = NOW() WHERE token = %s", (tg_token,))
+
             conn.commit()
 
-        return ok({"message": "Аккаунт создан"})
+        return ok({"message": "Аккаунт создан", "tg_linked": tg_id is not None})
 
     if action == "login":
         login_input = body.get("email", "").strip()
