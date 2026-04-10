@@ -31,6 +31,7 @@ export default function PublicCommunity() {
     queryFn: () => chatApi.getMessages("chat", "public"),
     staleTime: 0,
     refetchInterval: 5000,
+    enabled: !!nickname,
   });
 
   const sendMessage = useMutation({
