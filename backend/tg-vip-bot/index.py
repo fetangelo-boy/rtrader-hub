@@ -5,7 +5,7 @@ GET  ?action=gen_link — генерирует deep-link токен
 GET  ?action=status   — статус привязки
 POST ?action=unlink   — отвязать Telegram
 """
-import json, os, secrets, urllib.request
+import json, os, secrets, urllib.request, traceback
 import psycopg2
 
 CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token"}
@@ -20,8 +20,10 @@ def tg(method, payload):
     data = json.dumps(payload).encode()
     req = urllib.request.Request(f"https://api.telegram.org/bot{token}/{method}", data=data, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=5) as r: return json.loads(r.read())
-    except Exception: return {}
+        with urllib.request.urlopen(req, timeout=10) as r: return json.loads(r.read())
+    except Exception as e:
+        print(f"TG API error [{method}]: {e}\n{traceback.format_exc()}")
+        return {"tg_error": str(e)}
 
 def send(chat_id, text): tg("sendMessage", {"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
 
@@ -91,10 +93,14 @@ def handler(event: dict, context) -> dict:
 
         return ok({"ok": True})
 
-    # Одноразовая регистрация webhook (публичный)
+    # Одноразовая регистрация webhook (публичный, без авторизации)
     if action == "setup_webhook":
         webhook_url = "https://functions.poehali.dev/4807e4da-e564-4aba-8072-c30326d968ee"
         result = tg("setWebhook", {"url": webhook_url})
+        return ok(result)
+
+    if action == "get_webhook":
+        result = tg("getWebhookInfo", {})
         return ok(result)
 
     # API для фронтенда
@@ -116,10 +122,5 @@ def handler(event: dict, context) -> dict:
             cur.execute("UPDATE club_users SET telegram_id = NULL, telegram_username = NULL WHERE id = %s", (user["id"],))
             conn.commit()
         return ok({"message": "Telegram отвязан"})
-
-    if action == "setup_webhook":
-        webhook_url = f"https://functions.poehali.dev/4807e4da-e564-4aba-8072-c30326d968ee"
-        result = tg("setWebhook", {"url": webhook_url})
-        return ok(result)
 
     return err("Неизвестное действие", 400)
