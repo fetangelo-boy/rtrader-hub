@@ -36,10 +36,8 @@ export default function PublicCommunity() {
 
   const sendMessage = useMutation({
     mutationFn: chatApi.sendMessage,
-    onSuccess: (msg) => {
-      queryClient.setQueryData(["public-messages"], (prev: typeof messages) =>
-        prev ? [...prev, msg] : [msg]
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["public-messages"] });
     },
   });
 
