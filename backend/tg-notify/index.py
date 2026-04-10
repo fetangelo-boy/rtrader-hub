@@ -46,21 +46,23 @@ def email_send(to_email: str, subject: str, html_body: str) -> bool:
     if not api_key:
         return False
     payload = json.dumps({
-        "from_email": "noreply@rtrader11.ru",
-        "from_name": "RTrader Club",
-        "to": [{"email": to_email}],
-        "subject": subject,
-        "html": html_body,
+        "message": {
+            "recipients": [{"email": to_email}],
+            "from_email": "noreply@rtrader11.ru",
+            "from_name": "RTrader Club",
+            "subject": subject,
+            "body": {"html": html_body},
+        }
     }).encode()
     req = urllib.request.Request(
-        "https://api.unisender2.com/ru/api/sendEmail",
+        "https://go1.unisender.ru/ru/transactional/api/v1/email/send.json",
         data=payload,
         headers={"Content-Type": "application/json", "X-API-KEY": api_key},
     )
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             result = json.loads(r.read())
-            return result.get("status") == "success" or "job_id" in result
+            return "job_id" in result or result.get("status") == "success"
     except Exception:
         return False
 
