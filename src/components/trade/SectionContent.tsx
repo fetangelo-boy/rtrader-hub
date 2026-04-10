@@ -385,10 +385,15 @@ export function SubscribeSection() {
 
   const handleConnectTg = async () => {
     setTgLinkLoading(true);
+    const popup = window.open("about:blank", "_blank");
     try {
       const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
       const d = await r.json();
-      if (d.url) window.open(d.url, "_blank");
+      if (d.url && popup) {
+        popup.location.href = d.url;
+      } else {
+        popup?.close();
+      }
       setTimeout(() => {
         fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token || "" } })
           .then(r => r.json())

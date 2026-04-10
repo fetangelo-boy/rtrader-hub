@@ -29,6 +29,7 @@ export default function Profile() {
   const [tgLinked, setTgLinked] = useState<boolean | null>(null);
   const [tgUsername, setTgUsername] = useState<string | null>(null);
   const [tgLinkLoading, setTgLinkLoading] = useState(false);
+  const [tgLinkError, setTgLinkError] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -74,10 +75,20 @@ export default function Profile() {
 
   const handleConnectTg = async () => {
     setTgLinkLoading(true);
+    setTgLinkError("");
+    const popup = window.open("about:blank", "_blank");
     try {
       const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
       const d = await r.json();
-      if (d.url) window.open(d.url, "_blank");
+      if (d.url && popup) {
+        popup.location.href = d.url;
+      } else {
+        popup?.close();
+        setTgLinkError(d.error || "Не удалось сгенерировать ссылку. Попробуйте ещё раз.");
+      }
+    } catch {
+      popup?.close();
+      setTgLinkError("Ошибка соединения. Попробуйте ещё раз.");
     } finally { setTgLinkLoading(false); }
   };
 
@@ -179,6 +190,7 @@ export default function Profile() {
                 <Icon name="Send" size={15} className="mr-2" />
                 {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
               </Button>
+              {tgLinkError && <p className="text-xs text-destructive">{tgLinkError}</p>}
             </div>
           )}
         </div>
