@@ -28,6 +28,7 @@ import ClubAdmin from "./pages/ClubAdmin";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import SectionRoute from "./components/SectionRoute";
+import LegalDoc from "./pages/LegalDoc";
 
 const queryClient = new QueryClient();
 
@@ -95,6 +96,9 @@ function AppRoutes() {
 
       {/* Редактор контента */}
       <Route path="/editor/*" element={<EditorPanel />} />
+
+      {/* Юридические документы */}
+      <Route path="/legal/:doc" element={<LegalDoc />} />
 
       {/* Авторизация */}
       <Route path="/login" element={<LoginRoute><Login /></LoginRoute>} />

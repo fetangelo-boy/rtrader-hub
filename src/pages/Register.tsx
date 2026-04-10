@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const CONSENTS = [
+  { id: "terms",   text: "Я принимаю",        link: "Пользовательское соглашение",    href: "/legal/terms" },
+  { id: "privacy", text: "Я ознакомлен(а) с", link: "Политикой конфиденциальности",   href: "/legal/privacy" },
+  { id: "rules",   text: "Я принимаю",        link: "Правила модерации",              href: "/legal/rules" },
+];
+
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +28,8 @@ export default function Register() {
     invite_code: inviteCode,
     tg_token: tgToken,
   });
+  const [consents, setConsents] = useState({ terms: false, privacy: false, rules: false });
+  const allConsented = consents.terms && consents.privacy && consents.rules;
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,10 +40,10 @@ export default function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!form.gdpr_consent) { setError("Необходимо согласие на обработку персональных данных"); return; }
+    if (!allConsented) { setError("Необходимо принять все документы"); return; }
     setLoading(true);
     try {
-      await register(form);
+      await register({ ...form, gdpr_consent: true });
       navigate("/login");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Ошибка регистрации");
@@ -131,20 +139,28 @@ export default function Register() {
               </div>
             )}
 
-            <div className="flex items-start gap-2">
-              <input
-                id="gdpr"
-                type="checkbox"
-                checked={form.gdpr_consent}
-                onChange={(e) => set("gdpr_consent", e.target.checked)}
-                className="mt-0.5 accent-primary"
-              />
-              <label htmlFor="gdpr" className="text-xs text-muted-foreground cursor-pointer">
-                Я согласен на обработку персональных данных и с условиями использования
-              </label>
+            <div className="space-y-2.5">
+              {CONSENTS.map(c => (
+                <div key={c.id} className="flex items-start gap-2">
+                  <input
+                    id={`consent-${c.id}`}
+                    type="checkbox"
+                    checked={consents[c.id as keyof typeof consents]}
+                    onChange={(e) => setConsents(prev => ({ ...prev, [c.id]: e.target.checked }))}
+                    className="mt-0.5 accent-primary flex-shrink-0"
+                  />
+                  <label htmlFor={`consent-${c.id}`} className="text-xs text-muted-foreground cursor-pointer leading-relaxed">
+                    {c.text}{" "}
+                    <a href={c.href} target="_blank" rel="noopener noreferrer"
+                      className="text-primary hover:underline" onClick={e => e.stopPropagation()}>
+                      {c.link}
+                    </a>
+                  </label>
+                </div>
+              ))}
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || !allConsented} className="w-full">
               {loading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
           </form>

@@ -3,6 +3,7 @@
 GET /?section=reflections          — список видимых материалов
 GET /?action=sections              — видимость разделов навигации
 GET /?action=content&section=home  — тексты site_content по секции
+GET /?action=legal&doc=terms|privacy|rules — текст юридического документа
 """
 
 import json
@@ -40,6 +41,36 @@ def handler(event: dict, context) -> dict:
             "statusCode": 200,
             "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
             "body": json.dumps({"sections": sections}, ensure_ascii=False),
+        }
+
+    if params.get("action") == "legal":
+        doc = (params.get("doc") or "").strip()
+        if doc not in ("terms", "privacy", "rules"):
+            return {
+                "statusCode": 400,
+                "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+                "body": json.dumps({"error": "Unknown doc"}),
+            }
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            f"SELECT value FROM {SCHEMA}.site_content WHERE section = 'legal' AND key = %s",
+            (f"{doc}_text",)
+        )
+        row = cur.fetchone()
+        cur.execute(
+            f"SELECT value FROM {SCHEMA}.site_content WHERE section = 'legal' AND key = %s",
+            (f"{doc}_version",)
+        )
+        ver = cur.fetchone()
+        cur.close(); conn.close()
+        return {
+            "statusCode": 200,
+            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+            "body": json.dumps({
+                "text": row["value"] if row else "",
+                "version": ver["value"] if ver else "1.0",
+            }, ensure_ascii=False),
         }
 
     if params.get("action") == "content":

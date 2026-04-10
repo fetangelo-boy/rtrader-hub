@@ -148,6 +148,14 @@ def handler(event: dict, context) -> dict:
             if tg_token:
                 cur.execute("UPDATE tg_link_tokens SET expires_at = NOW() WHERE token = %s", (tg_token,))
 
+            ip_address = (event.get("requestContext") or {}).get("identity", {}).get("sourceIp", "")
+            doc_versions = {"terms": "1.0", "privacy": "1.0", "rules": "1.0"}
+            for doc_key, doc_ver in doc_versions.items():
+                cur.execute(
+                    "INSERT INTO consent_log (user_id, email, ip_address, doc_key, doc_version) VALUES (%s, %s, %s, %s, %s)",
+                    (user_id, email, ip_address, doc_key, doc_ver)
+                )
+
             conn.commit()
 
         if tg_id:

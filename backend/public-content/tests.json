@@ -27,6 +27,20 @@
       "path": "/?action=content&section=home",
       "expectedStatus": 200,
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET legal terms — возвращает текст соглашения",
+      "method": "GET",
+      "path": "/?action=legal&doc=terms",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET legal unknown — 400",
+      "method": "GET",
+      "path": "/?action=legal&doc=unknown",
+      "expectedStatus": 400,
+      "bodyMatcher": "partial"
     }
   ]
 }

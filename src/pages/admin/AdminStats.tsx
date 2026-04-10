@@ -36,6 +36,24 @@ function Card({ label, value, sub, icon, color }: { label: string; value: string
 export default function AdminStats() {
   const [revDays, setRevDays] = useState(30);
   const [expDays, setExpDays] = useState(14);
+  const [csvLoading, setCsvLoading] = useState(false);
+
+  const downloadConsentsCSV = async () => {
+    setCsvLoading(true);
+    try {
+      const r = await fetch(`${STATS_URL}?action=consents_csv`, { headers: authHeaders() });
+      const text = await r.text();
+      const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `consents_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setCsvLoading(false);
+    }
+  };
 
   const { data: overview } = useQuery({
     queryKey: ["admin-stats-overview"],
@@ -62,9 +80,19 @@ export default function AdminStats() {
           <div className="text-xs text-white/30 uppercase tracking-widest mb-1">Аналитика</div>
           <h1 className="font-russo text-2xl text-white">Статистика и выручка</h1>
         </div>
-        <a href="/" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#FFD700] border border-[#FFD700]/30 bg-[#FFD700]/5 hover:bg-[#FFD700]/15 hover:border-[#FFD700]/60 transition-all whitespace-nowrap">
-          <Icon name="ArrowLeft" size={13} /> На сайт
-        </a>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={downloadConsentsCSV}
+            disabled={csvLoading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-400 border border-emerald-400/30 bg-emerald-400/5 hover:bg-emerald-400/15 hover:border-emerald-400/60 transition-all whitespace-nowrap disabled:opacity-50"
+          >
+            <Icon name={csvLoading ? "Loader2" : "Download"} size={13} className={csvLoading ? "animate-spin" : ""} />
+            Выгрузить согласия
+          </button>
+          <a href="/" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#FFD700] border border-[#FFD700]/30 bg-[#FFD700]/5 hover:bg-[#FFD700]/15 hover:border-[#FFD700]/60 transition-all whitespace-nowrap">
+            <Icon name="ArrowLeft" size={13} /> На сайт
+          </a>
+        </div>
       </div>
 
       {/* Сводка */}

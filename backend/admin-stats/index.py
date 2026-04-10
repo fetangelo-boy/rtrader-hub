@@ -148,4 +148,27 @@ def handler(event: dict, context) -> dict:
             rows = cur.fetchall()
         return ok({"registrations": [{"date": str(r[0]), "count": r[1]} for r in rows], "days": days})
 
+    if action == "consents_csv":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.id, c.email, c.ip_address, c.doc_key, c.doc_version,
+                       c.accepted_at, c.user_id
+                FROM consent_log c
+                ORDER BY c.accepted_at DESC
+            """)
+            rows = cur.fetchall()
+        lines = ["id,email,ip_address,doc_key,doc_version,accepted_at,user_id"]
+        for r in rows:
+            lines.append(f'{r[0]},"{r[1]}","{r[2] or ""}",{r[3]},{r[4]},{r[5].isoformat() if r[5] else ""},{r[6] or ""}')
+        csv_body = "\n".join(lines)
+        return {
+            "statusCode": 200,
+            "headers": {
+                **CORS,
+                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Disposition": "attachment; filename=consents.csv",
+            },
+            "body": csv_body,
+        }
+
     return err("Неизвестное действие", 400)
