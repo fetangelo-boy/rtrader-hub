@@ -1,0 +1,1 @@
+ALTER TABLE tg_link_tokens DROP CONSTRAINT tg_link_tokens_user_id_fkey;
