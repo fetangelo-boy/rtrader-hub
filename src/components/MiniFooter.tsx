@@ -14,8 +14,9 @@ export default function MiniFooter() {
           onClick={e => e.preventDefault()}
         >
           <span className="w-1.5 h-1.5 rounded-full inline-block"
-            style={{ background: "linear-gradient(135deg, #FF2D78, #9B30FF)" }} />
-          <span className="text-xs font-medium text-white/70">Traders Reflections</span>
+            style={{ background: "linear-gradient(135deg, #9B30FF, #FF2D78)" }} />
+          <span className="text-xs font-medium"
+            style={{ background: "linear-gradient(90deg, #00E5FF, #9B30FF, #FF2D78)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Traders Reflections</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-widest uppercase"
             style={{ background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)", color: "#00E5FF" }}>
             soon
