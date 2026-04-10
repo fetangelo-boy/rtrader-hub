@@ -374,6 +374,8 @@ export function SubscribeSection() {
 
   const [tgLinked, setTgLinked] = useState<boolean | null>(null);
   const [tgLinkLoading, setTgLinkLoading] = useState(false);
+  const [tgLinkUrl, setTgLinkUrl] = useState("");
+  const [tgCopied, setTgCopied] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -385,22 +387,18 @@ export function SubscribeSection() {
 
   const handleConnectTg = async () => {
     setTgLinkLoading(true);
-    const popup = window.open("about:blank", "_blank");
+    setTgLinkUrl("");
     try {
       const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
       const d = await r.json();
-      if (d.url && popup) {
-        popup.location.href = d.url;
-      } else {
-        popup?.close();
-      }
-      setTimeout(() => {
-        fetch(`${TG_BOT_URL}?action=status`, { headers: { "X-Auth-Token": token || "" } })
-          .then(r => r.json())
-          .then(d => setTgLinked(d.linked))
-          .catch(() => {});
-      }, 5000);
+      if (d.url) setTgLinkUrl(d.url);
     } finally { setTgLinkLoading(false); }
+  };
+
+  const handleCopyTg = () => {
+    navigator.clipboard.writeText(tgLinkUrl);
+    setTgCopied(true);
+    setTimeout(() => setTgCopied(false), 2000);
   };
 
   const plan = PLANS.find(p => p.id === selectedPlan)!;
@@ -461,16 +459,28 @@ export function SubscribeSection() {
           <div className="w-full max-w-sm bg-[#29b6f6]/8 border border-[#29b6f6]/30 rounded-xl p-4 space-y-3 text-left">
             <p className="text-sm text-[#29b6f6] font-medium">Подключите Telegram</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Оплата прошла. Подключите Telegram, чтобы автоматически активировать VIP‑доступ.
+              Оплата прошла. Откройте ссылку в нужном аккаунте Telegram — доступ активируется автоматически.
             </p>
-            <button
-              onClick={handleConnectTg}
-              disabled={tgLinkLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-sm font-semibold transition-colors disabled:opacity-60"
-            >
-              <Icon name="Send" size={15} />
-              {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
-            </button>
+            {!tgLinkUrl ? (
+              <button
+                onClick={handleConnectTg}
+                disabled={tgLinkLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-sm font-semibold transition-colors disabled:opacity-60"
+              >
+                <Icon name="Send" size={15} />
+                {tgLinkLoading ? "Генерирую ссылку..." : "Получить ссылку"}
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 bg-background/60 rounded-lg px-3 py-2 border border-[#29b6f6]/20">
+                  <a href={tgLinkUrl} target="_blank" rel="noreferrer" className="flex-1 text-xs text-[#29b6f6] truncate hover:underline">{tgLinkUrl}</a>
+                  <button onClick={handleCopyTg} className="shrink-0 text-muted-foreground hover:text-foreground" title="Скопировать">
+                    <Icon name={tgCopied ? "Check" : "Copy"} size={13} className={tgCopied ? "text-green" : ""} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Ссылка действует 15 минут. <button onClick={() => setTgLinkUrl("")} className="underline">Новая</button></p>
+              </div>
+            )}
           </div>
         )}
         {tgLinked === true && (
@@ -549,16 +559,28 @@ export function SubscribeSection() {
               Подключите Telegram заранее
             </p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Если Telegram уже привязан, доступ откроется автоматически сразу после проверки оплаты.
+              Откройте ссылку в нужном аккаунте Telegram — доступ активируется автоматически после проверки оплаты.
             </p>
-            <button
-              onClick={handleConnectTg}
-              disabled={tgLinkLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-xs font-semibold transition-colors disabled:opacity-60"
-            >
-              <Icon name="Send" size={13} />
-              {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
-            </button>
+            {!tgLinkUrl ? (
+              <button
+                onClick={handleConnectTg}
+                disabled={tgLinkLoading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-xs font-semibold transition-colors disabled:opacity-60"
+              >
+                <Icon name="Send" size={13} />
+                {tgLinkLoading ? "Генерирую ссылку..." : "Получить ссылку"}
+              </button>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 bg-background/60 rounded-lg px-3 py-2 border border-[#29b6f6]/20">
+                  <a href={tgLinkUrl} target="_blank" rel="noreferrer" className="flex-1 text-xs text-[#29b6f6] truncate hover:underline">{tgLinkUrl}</a>
+                  <button onClick={handleCopyTg} className="shrink-0 text-muted-foreground hover:text-foreground" title="Скопировать">
+                    <Icon name={tgCopied ? "Check" : "Copy"} size={13} className={tgCopied ? "text-green" : ""} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Ссылка действует 15 минут. <button onClick={() => setTgLinkUrl("")} className="underline">Новая</button></p>
+              </div>
+            )}
           </div>
         )}
         {tgLinked === true && (

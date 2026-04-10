@@ -16,6 +16,8 @@ export default function NoAccess() {
   const [tgUsername, setTgUsername] = useState<string | null>(null);
   const [tgLinkLoading, setTgLinkLoading] = useState(false);
   const [tgLinkError, setTgLinkError] = useState("");
+  const [tgLinkUrl, setTgLinkUrl] = useState("");
+  const [tgCopied, setTgCopied] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -28,20 +30,24 @@ export default function NoAccess() {
   const handleConnectTg = async () => {
     setTgLinkLoading(true);
     setTgLinkError("");
-    const popup = window.open("about:blank", "_blank");
+    setTgLinkUrl("");
     try {
       const r = await fetch(`${TG_BOT_URL}?action=gen_link`, { headers: { "X-Auth-Token": token || "" } });
       const d = await r.json();
-      if (d.url && popup) {
-        popup.location.href = d.url;
+      if (d.url) {
+        setTgLinkUrl(d.url);
       } else {
-        popup?.close();
         setTgLinkError(d.error || "Не удалось сгенерировать ссылку. Попробуйте ещё раз.");
       }
     } catch {
-      popup?.close();
       setTgLinkError("Ошибка соединения. Попробуйте ещё раз.");
     } finally { setTgLinkLoading(false); }
+  };
+
+  const handleCopyTg = () => {
+    navigator.clipboard.writeText(tgLinkUrl);
+    setTgCopied(true);
+    setTimeout(() => setTgCopied(false), 2000);
   };
 
   const handleLogout = async () => {
@@ -115,14 +121,28 @@ export default function NoAccess() {
               <p className="text-xs text-muted-foreground">
                 Если у тебя уже есть оплаченная подписка — привяжи Telegram и бот выдаст доступ автоматически.
               </p>
-              <Button
-                onClick={handleConnectTg}
-                disabled={tgLinkLoading}
-                className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white"
-              >
-                <Icon name="Send" size={15} className="mr-2" />
-                {tgLinkLoading ? "Генерирую ссылку..." : "Подключить Telegram"}
-              </Button>
+              {!tgLinkUrl ? (
+                <Button
+                  onClick={handleConnectTg}
+                  disabled={tgLinkLoading}
+                  className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white"
+                >
+                  <Icon name="Send" size={15} className="mr-2" />
+                  {tgLinkLoading ? "Генерирую ссылку..." : "Получить ссылку для Telegram"}
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Откройте ссылку в нужном аккаунте Telegram:</p>
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <a href={tgLinkUrl} target="_blank" rel="noreferrer" className="flex-1 text-xs text-[#29b6f6] truncate hover:underline">{tgLinkUrl}</a>
+                    <button onClick={handleCopyTg} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" title="Скопировать">
+                      <Icon name={tgCopied ? "Check" : "Copy"} size={14} className={tgCopied ? "text-green" : ""} />
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Ссылка действует 15 минут.</p>
+                  <button onClick={() => setTgLinkUrl("")} className="text-xs text-muted-foreground hover:text-foreground underline">Сгенерировать новую</button>
+                </div>
+              )}
               {tgLinkError && <p className="text-xs text-destructive">{tgLinkError}</p>}
             </div>
           )}
