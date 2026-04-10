@@ -16,8 +16,25 @@ import json
 import os
 import secrets
 import hashlib
+import urllib.request
 from datetime import datetime, timedelta, timezone
 import psycopg2
+
+SITE_URL = "https://rtrader11.ru"
+
+def tg_send(chat_id, text):
+    token = os.environ.get("TELEGRAM_VIP_BOT_TOKEN", "")
+    if not token or not chat_id:
+        return
+    try:
+        data = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=data, headers={"Content-Type": "application/json"}
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -132,6 +149,15 @@ def handler(event: dict, context) -> dict:
                 cur.execute("UPDATE tg_link_tokens SET expires_at = NOW() WHERE token = %s", (tg_token,))
 
             conn.commit()
+
+        if tg_id:
+            tg_send(tg_id, (
+                f"✅ <b>Регистрация прошла успешно!</b>\n\n"
+                f"Привет, <b>{nickname}</b>! Твой Telegram привязан к аккаунту.\n\n"
+                f"Теперь оформи подписку, чтобы получить доступ в клуб:\n"
+                f"👉 <a href=\"{SITE_URL}/subscribe\">{SITE_URL}/subscribe</a>\n\n"
+                f"/status — проверить статус подписки"
+            ))
 
         return ok({"message": "Аккаунт создан", "tg_linked": tg_id is not None})
 
