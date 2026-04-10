@@ -235,10 +235,12 @@ def handler(event: dict, context) -> dict:
     if action == "subscribers":
         search = qs.get("search", "").strip()
         status_filter = qs.get("status", "").strip()
+        no_tg_filter = qs.get("no_tg", "").strip() == "1"
         with conn.cursor() as cur:
             query = """
                 SELECT u.id, u.email, u.nickname, u.is_blocked, u.role,
-                       s.id as sub_id, s.plan, s.status, s.expires_at, s.created_at
+                       s.id as sub_id, s.plan, s.status, s.expires_at, s.created_at,
+                       u.telegram_id, u.telegram_username
                 FROM club_users u
                 LEFT JOIN LATERAL (
                     SELECT id, plan, status, expires_at, created_at
@@ -252,6 +254,8 @@ def handler(event: dict, context) -> dict:
             if search:
                 query += " AND (u.email ILIKE %s OR u.nickname ILIKE %s)"
                 params += [f"%{search}%", f"%{search}%"]
+            if no_tg_filter:
+                query += " AND u.telegram_id IS NULL"
             if status_filter == "active":
                 query += " AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())"
             elif status_filter == "expiring":
@@ -290,6 +294,7 @@ def handler(event: dict, context) -> dict:
                 "sub_id": r[5], "plan": r[6], "status": computed,
                 "expires_at": exp.isoformat() if exp else None,
                 "created_at": r[9].isoformat() if r[9] else None,
+                "telegram_id": r[10], "telegram_username": r[11],
             })
         return ok({"subscribers": result})
 

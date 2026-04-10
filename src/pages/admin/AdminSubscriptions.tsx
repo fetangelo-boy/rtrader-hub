@@ -25,6 +25,7 @@ interface Subscriber {
   user_id: number; email: string; nickname: string; is_blocked: boolean; role?: string;
   sub_id: number | null; plan: string | null; status: string;
   expires_at: string | null; created_at: string | null;
+  telegram_id: number | null; telegram_username: string | null;
 }
 
 interface HistoryEntry {
@@ -60,6 +61,7 @@ export default function AdminSubscriptions() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [noTgFilter, setNoTgFilter] = useState(false);
   const [selected, setSelected] = useState<Subscriber | null>(null);
   const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | null>(null);
   const [saving, setSaving] = useState(false);
@@ -80,11 +82,12 @@ export default function AdminSubscriptions() {
     const params = new URLSearchParams({ action: "subscribers" });
     if (search) params.set("search", search);
     if (statusFilter !== "all") params.set("status", statusFilter);
+    if (noTgFilter) params.set("no_tg", "1");
     const res = await fetch(`${API}?${params}`, { headers: headers() });
     const d = await res.json();
     setSubscribers(d.subscribers || []);
     setLoading(false);
-  }, [search, statusFilter]);
+  }, [search, statusFilter, noTgFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -206,15 +209,25 @@ export default function AdminSubscriptions() {
       </div>
 
       {/* Поиск */}
-      <div className="flex gap-3 mb-4">
-        <div className="relative flex-1">
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-48">
           <Icon name="Search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Email или никнейм..."
             className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/25 transition-colors" />
         </div>
-        {statusFilter !== "all" && (
-          <button onClick={() => setStatusFilter("all")}
+        <button
+          onClick={() => setNoTgFilter(v => !v)}
+          className={`px-3 py-2 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all ${
+            noTgFilter
+              ? "bg-[#29b6f6]/15 border-[#29b6f6]/40 text-[#29b6f6]"
+              : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"
+          }`}>
+          <Icon name="Send" size={12} />
+          Без Telegram
+        </button>
+        {(statusFilter !== "all" || noTgFilter) && (
+          <button onClick={() => { setStatusFilter("all"); setNoTgFilter(false); }}
             className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/50 hover:text-white transition-colors flex items-center gap-1.5">
             <Icon name="X" size={12} /> Сбросить
           </button>
@@ -268,6 +281,17 @@ export default function AdminSubscriptions() {
                         {days !== null && days > 0 && days <= 30 && (
                           <span className="ml-1 text-yellow-400">({days} дн.)</span>
                         )}
+                      </span>
+                    )}
+                    {sub.telegram_id ? (
+                      <span className="text-xs flex items-center gap-1 text-[#29b6f6]">
+                        <Icon name="Send" size={11} />
+                        {sub.telegram_username ? `@${sub.telegram_username}` : "привязан"}
+                      </span>
+                    ) : (
+                      <span className="text-xs flex items-center gap-1 text-white/20">
+                        <Icon name="Send" size={11} />
+                        нет TG
                       </span>
                     )}
                   </div>
