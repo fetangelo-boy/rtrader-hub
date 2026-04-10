@@ -81,7 +81,7 @@ def handler(event: dict, context) -> dict:
                 reg_token = secrets.token_urlsafe(24)
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO tg_link_tokens (token, user_id, expires_at, for_registration, tg_id, tg_username) VALUES (%s, NULL, NOW() + INTERVAL '30 minutes', TRUE, %s, %s)",
+                        "INSERT INTO tg_link_tokens (token, user_id, expires_at, for_registration, tg_id, tg_username) VALUES (%s, 0, NOW() + INTERVAL '30 minutes', TRUE, %s, %s)",
                         (reg_token, tg_id, tg_uname)
                     )
                     conn.commit()
