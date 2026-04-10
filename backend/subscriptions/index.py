@@ -8,8 +8,40 @@ import json
 import os
 import base64
 import boto3
+import urllib.request
 from datetime import datetime, timezone
 import psycopg2
+
+ADMIN_TG_ID = 716116024
+PLAN_LABELS = {
+    "week": "Неделя",
+    "month": "Месяц",
+    "quarter": "Квартал",
+    "halfyear": "Полгода",
+    "loyal": "Лояльный",
+}
+
+def notify_admin(nickname: str, email: str, plan: str, receipt_url: str):
+    token = os.environ.get("TELEGRAM_VIP_BOT_TOKEN", "")
+    if not token:
+        return
+    plan_label = PLAN_LABELS.get(plan, plan)
+    text = (
+        f"🔔 <b>Новая заявка на подписку</b>\n\n"
+        f"👤 <b>{nickname}</b> ({email})\n"
+        f"📦 Тариф: <b>{plan_label}</b>\n"
+        f"🧾 <a href=\"{receipt_url}\">Открыть чек</a>"
+    )
+    payload = json.dumps({"chat_id": ADMIN_TG_ID, "text": text, "parse_mode": "HTML"}).encode()
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        data=payload,
+        headers={"Content-Type": "application/json"}
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -120,6 +152,8 @@ def handler(event: dict, context) -> dict:
                 RETURNING id
             """, (user["id"], plan, "pending", receipt_url))
             conn.commit()
+
+        notify_admin(user["nickname"], user["email"], plan, receipt_url)
 
         return ok({"message": "Заявка отправлена"})
 
