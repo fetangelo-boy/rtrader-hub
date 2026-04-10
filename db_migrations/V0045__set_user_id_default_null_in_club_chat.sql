@@ -1,0 +1,1 @@
+ALTER TABLE club_chat ALTER COLUMN user_id SET DEFAULT NULL;
