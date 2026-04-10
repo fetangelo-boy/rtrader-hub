@@ -1,6 +1,7 @@
 """
 Публичный API для чтения контента сайта (без авторизации).
 GET /?section=reflections  — список видимых материалов
+GET /?action=sections      — видимость разделов навигации
 """
 
 import json
@@ -27,6 +28,19 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS_HEADERS, "body": ""}
 
     params = event.get("queryStringParameters") or {}
+
+    if params.get("action") == "sections":
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(f"SELECT key, label, is_visible FROM {SCHEMA}.site_sections ORDER BY key")
+        sections = [dict(r) for r in cur.fetchall()]
+        cur.close(); conn.close()
+        return {
+            "statusCode": 200,
+            "headers": {**CORS_HEADERS, "Content-Type": "application/json"},
+            "body": json.dumps({"sections": sections}, ensure_ascii=False),
+        }
+
     section = (params.get("section") or "").strip()
 
     if section not in ALLOWED:

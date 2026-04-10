@@ -5,7 +5,14 @@
       "method": "GET",
       "path": "/?section=reflections",
       "expectedStatus": 200,
-      "expectedBody": { "items": [] },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET sections — возвращает разделы навигации",
+      "method": "GET",
+      "path": "/?action=sections",
+      "expectedStatus": 200,
+      "expectedBody": { "sections": [] },
       "bodyMatcher": "partial"
     },
     {
