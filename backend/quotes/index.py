@@ -28,7 +28,7 @@ MOEX_INDEX   = "IMOEX"
 MOEX_STOCKS  = ["SBER", "GAZP", "NVTK", "LKOH"]
 
 _cache: dict = {"data": None, "ts": 0}
-CACHE_TTL = 60
+CACHE_TTL = 120
 
 
 def fmt_price(price: float) -> str:
@@ -173,7 +173,7 @@ def handler(event: dict, context) -> dict:
     if _cache["data"] and now - _cache["ts"] < CACHE_TTL:
         return {
             "statusCode": 200,
-            "headers": {**CORS, "Content-Type": "application/json"},
+            "headers": {**CORS, "Content-Type": "application/json", "Cache-Control": "public, max-age=115"},
             "body": json.dumps(_cache["data"], ensure_ascii=False),
         }
 
@@ -209,6 +209,6 @@ def handler(event: dict, context) -> dict:
 
     return {
         "statusCode": 200,
-        "headers": {**CORS, "Content-Type": "application/json"},
+        "headers": {**CORS, "Content-Type": "application/json", "Cache-Control": "public, max-age=115"},
         "body": json.dumps(payload, ensure_ascii=False),
     }

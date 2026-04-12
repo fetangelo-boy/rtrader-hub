@@ -20,8 +20,8 @@ export function useQuotes() {
       const d = await r.json();
       return d.quotes || [];
     },
-    refetchInterval: 30_000,
-    staleTime: 25_000,
+    refetchInterval: 120_000,
+    staleTime: 115_000,
     refetchIntervalInBackground: false,
     placeholderData: [],
   });
