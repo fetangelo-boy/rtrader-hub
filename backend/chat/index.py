@@ -26,7 +26,8 @@ READONLY_CHANNELS = {"intraday", "video", "access_info", "knowledge"}
 VALID_CHANNELS = {"intraday", "chat", "metals", "oil", "products", "video", "tech", "access_info", "knowledge"}
 
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_IMAGE_BYTES = 5 * 1024 * 1024        # 5 МБ после декодирования
+MAX_IMAGE_B64_LEN = 7 * 1024 * 1024     # ~7 МБ base64 → соответствует ~5 МБ бинарных данных
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -100,11 +101,13 @@ def notify_admin_spam(nickname: str, source: str, text: str, triggered_word: str
 
 def upload_image_to_s3(image_b64: str, mime: str) -> str:
     import boto3
-    data = base64.b64decode(image_b64)
-    if len(data) > MAX_IMAGE_BYTES:
-        raise ValueError("Файл слишком большой (макс. 10 МБ)")
+    if len(image_b64) > MAX_IMAGE_B64_LEN:
+        raise ValueError("Файл слишком большой (макс. 5 МБ)")
     if mime not in ALLOWED_MIME:
         raise ValueError("Недопустимый формат. Только JPEG, PNG, GIF, WebP")
+    data = base64.b64decode(image_b64)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("Файл слишком большой (макс. 5 МБ)")
     ext = mime.split("/")[1].replace("jpeg", "jpg")
     key = f"chat/{uuid.uuid4().hex}.{ext}"
     s3 = boto3.client(

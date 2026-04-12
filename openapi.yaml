@@ -1,0 +1,1426 @@
+openapi: 3.0.3
+info:
+  title: RTrader Club API
+  version: "1.0"
+  description: |
+    REST API для мобильного приложения RTrader VIP Club.
+
+    ## Авторизация
+    Большинство защищённых эндпоинтов требуют заголовок `X-Auth-Token`.
+    Токен выдаётся при логине (`POST /auth?action=login`) и действует 30 дней.
+
+    ## Базовые URL
+    Каждая функция имеет собственный URL (см. `backend/func2url.json`).
+    В документации URL функций обозначены как `servers`.
+
+    ## Примечание по протоколу
+    Все тела запросов и ответов — JSON (`Content-Type: application/json`).
+    Файлы передаются как base64-строка внутри JSON-тела.
+
+servers:
+  - url: https://functions.poehali.dev
+    description: Production
+
+tags:
+  - name: Auth
+    description: Регистрация, вход, профиль
+  - name: Chat
+    description: Чаты VIP-клуба и публичный чат
+  - name: Subscriptions
+    description: Подписки — статус, оформление, история
+  - name: Quotes
+    description: Биржевые котировки для бегущей строки
+  - name: Telegram
+    description: Привязка Telegram-аккаунта через бота
+  - name: Reviews
+    description: Публичные отзывы пользователей
+  - name: Admin
+    description: Управление пользователями, платежами, чатами (только admin/owner)
+  - name: Admin Stats
+    description: Финансовая статистика и аналитика (только admin/owner)
+  - name: Admin Pricing
+    description: Управление ценами тарифов (только admin/owner)
+
+# ─────────────────────────────────────────────────────────────
+# КОМПОНЕНТЫ
+# ─────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    UserToken:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: Токен сессии пользователя. Получается через POST /auth?action=login
+    AdminToken:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: Токен сессии пользователя с ролью admin или owner
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Не авторизован"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        nickname:
+          type: string
+          example: "trader_pro"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          type: string
+          enum: [subscriber, admin, owner]
+          example: "subscriber"
+        is_blocked:
+          type: boolean
+          example: false
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        plan:
+          type: string
+          enum: [week, month, quarter, halfyear, loyal, invite]
+          example: "month"
+        status:
+          type: string
+          enum: [active, pending, rejected]
+          example: "active"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-05-12T12:00:00+00:00"
+        is_active:
+          type: boolean
+          example: true
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        text:
+          type: string
+          example: "Всем привет! Смотрю на SBER."
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-04-12T10:30:00+00:00"
+        nickname:
+          type: string
+          example: "trader_pro"
+        role:
+          type: string
+          enum: [subscriber, admin, owner]
+          example: "subscriber"
+        user_id:
+          type: integer
+          nullable: true
+          example: 42
+        reply_to_id:
+          type: integer
+          nullable: true
+          example: 99
+        reply_to_nickname:
+          type: string
+          nullable: true
+          example: "another_user"
+        reply_to_text:
+          type: string
+          nullable: true
+          example: "Вопрос по Газпрому..."
+        image_url:
+          type: string
+          nullable: true
+          example: "https://cdn.poehali.dev/projects/.../chat/abc123.jpg"
+
+    Quote:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "SBER"
+        price:
+          type: string
+          example: "305.40"
+        change:
+          type: string
+          example: "+1.25%"
+        up:
+          type: boolean
+          example: true
+        raw_price:
+          type: number
+          example: 305.40
+        raw_change_pct:
+          type: number
+          example: 1.25
+        source:
+          type: string
+          enum: [moex, finnhub]
+          example: "moex"
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5
+        name:
+          type: string
+          example: "Алексей"
+        status:
+          type: string
+          example: "Трейдер, 3 года"
+        text:
+          type: string
+          example: "Отличный клуб, много полезного контента!"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-01T09:00:00"
+
+# ─────────────────────────────────────────────────────────────
+# ЭНДПОИНТЫ
+# ─────────────────────────────────────────────────────────────
+paths:
+
+  # ══════════════════════════════════════════════════════
+  # AUTH  /auth  → func2url["auth"]
+  # ══════════════════════════════════════════════════════
+
+  /auth?action=register:
+    post:
+      tags: [Auth]
+      summary: Регистрация нового пользователя
+      description: |
+        Создаёт аккаунт. Поддерживает регистрацию через Telegram (`tg_token` из бота)
+        и применение пригласительного кода (`invite_code`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, nickname, gdpr_consent]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "secret123"
+                nickname:
+                  type: string
+                  minLength: 2
+                  maxLength: 30
+                  example: "trader_pro"
+                gdpr_consent:
+                  type: boolean
+                  example: true
+                invite_code:
+                  type: string
+                  description: Пригласительный код (опционально)
+                  example: "INV-ABCD1234"
+                tg_token:
+                  type: string
+                  description: Токен из Telegram-бота для автопривязки (опционально)
+                  example: "abc123xyz"
+      responses:
+        "200":
+          description: Аккаунт создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Аккаунт создан"
+                  tg_linked:
+                    type: boolean
+                    example: false
+        "400":
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth?action=login:
+    post:
+      tags: [Auth]
+      summary: Вход в аккаунт
+      description: |
+        Возвращает токен сессии. Принимает email **или** никнейм:
+        - Если в поле `email` есть символ `@` — ищет по email
+        - Иначе — ищет по никнейму (без учёта регистра)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  description: Email или никнейм
+                  example: "user@example.com"
+                password:
+                  type: string
+                  example: "secret123"
+      responses:
+        "200":
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Токен сессии (действует 30 дней)
+                    example: "a1b2c3d4e5f6..."
+                  user_id:
+                    type: integer
+                    example: 42
+                  nickname:
+                    type: string
+                    example: "trader_pro"
+                  email:
+                    type: string
+                    example: "user@example.com"
+                  role:
+                    type: string
+                    enum: [subscriber, admin, owner]
+                    example: "subscriber"
+        "401":
+          description: Неверный email/пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth?action=logout:
+    post:
+      tags: [Auth]
+      summary: Выход из аккаунта (инвалидация токена)
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /auth?action=me:
+    get:
+      tags: [Auth]
+      summary: Получить данные текущего пользователя
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth?action=update_nickname:
+    post:
+      tags: [Auth]
+      summary: Изменить никнейм
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_nickname]
+              properties:
+                new_nickname:
+                  type: string
+                  minLength: 2
+                  maxLength: 30
+                  example: "new_trader"
+      responses:
+        "200":
+          description: Никнейм изменён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        "400":
+          $ref: '#/components/schemas/Error'
+
+  /auth?action=change_password:
+    post:
+      tags: [Auth]
+      summary: Изменить пароль
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_password, new_password]
+              properties:
+                old_password:
+                  type: string
+                  example: "oldSecret123"
+                new_password:
+                  type: string
+                  minLength: 6
+                  example: "newSecret456"
+      responses:
+        "200":
+          description: Пароль изменён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+        "400":
+          $ref: '#/components/schemas/Error'
+
+  # ══════════════════════════════════════════════════════
+  # SUBSCRIPTIONS  → func2url["subscriptions"]
+  # ══════════════════════════════════════════════════════
+
+  /subscriptions?action=status:
+    get:
+      tags: [Subscriptions]
+      summary: Статус подписки текущего пользователя
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Статус подписки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription:
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/Subscription'
+
+  /subscriptions?action=request:
+    post:
+      tags: [Subscriptions]
+      summary: Подать заявку на подписку с чеком об оплате
+      description: |
+        Загружает чек (скриншот оплаты) и создаёт заявку на ручную проверку администратором.
+        Чек передаётся как base64-строка.
+      security:
+        - UserToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan, receipt_base64]
+              properties:
+                plan:
+                  type: string
+                  enum: [week, month, quarter, halfyear, loyal]
+                  description: |
+                    Тарифы и сроки:
+                    - week — 7 дней
+                    - month — 30 дней
+                    - quarter — 90 дней
+                    - halfyear — 180 дней
+                    - loyal — 30 дней (лояльный)
+                  example: "month"
+                receipt_base64:
+                  type: string
+                  description: Base64-encoded изображение чека
+                  example: "/9j/4AAQSkZJRgABAQAA..."
+                receipt_mime:
+                  type: string
+                  default: "image/jpeg"
+                  enum: [image/jpeg, image/png, image/webp]
+                  example: "image/jpeg"
+      responses:
+        "200":
+          description: Заявка отправлена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Заявка отправлена"
+
+  /subscriptions?action=my_requests:
+    get:
+      tags: [Subscriptions]
+      summary: История моих заявок на подписку
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Список заявок
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Subscription'
+
+  # ══════════════════════════════════════════════════════
+  # CHAT  → func2url["chat"]
+  # ══════════════════════════════════════════════════════
+
+  /chat?action=messages&source=club:
+    get:
+      tags: [Chat]
+      summary: Получить сообщения VIP-канала
+      description: |
+        Требует активную подписку или роль admin/owner.
+
+        Доступные каналы:
+        - `intraday` — интрадей (только чтение)
+        - `chat` — общий чат
+        - `metals` — металлы
+        - `oil` — нефть
+        - `products` — продукты
+        - `video` — видео (только чтение)
+        - `tech` — технические вопросы
+        - `access_info` — информация о доступе (только чтение)
+        - `knowledge` — база знаний (только чтение)
+      security:
+        - UserToken: []
+      parameters:
+        - in: query
+          name: source
+          required: true
+          schema:
+            type: string
+            enum: [club]
+          example: "club"
+        - in: query
+          name: channel
+          required: true
+          schema:
+            type: string
+            enum: [intraday, chat, metals, oil, products, video, tech, access_info, knowledge]
+          example: "chat"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 60
+          example: 60
+      responses:
+        "200":
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Нет активной подписки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat?action=send&source=club:
+    post:
+      tags: [Chat]
+      summary: Отправить сообщение в VIP-канал
+      description: |
+        Только для каналов без флага "только чтение":
+        `chat`, `metals`, `oil`, `products`, `tech`.
+
+        Изображение передаётся как base64. Максимальный размер — **5 МБ**.
+        Поддерживаемые форматы: JPEG, PNG, GIF, WebP.
+      security:
+        - UserToken: []
+      parameters:
+        - in: query
+          name: source
+          required: true
+          schema:
+            type: string
+            enum: [club]
+        - in: query
+          name: channel
+          required: true
+          schema:
+            type: string
+            enum: [chat, metals, oil, products, tech]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 1000
+                  example: "Смотрю на SBER — хорошая точка входа"
+                image_b64:
+                  type: string
+                  description: Base64-encoded изображение (макс. 5 МБ, JPEG/PNG/GIF/WebP)
+                  example: "/9j/4AAQSkZJRgABAQAA..."
+                image_mime:
+                  type: string
+                  enum: [image/jpeg, image/png, image/gif, image/webp]
+                  example: "image/jpeg"
+                reply_to_id:
+                  type: integer
+                  nullable: true
+                  description: ID сообщения, на которое отвечаем
+                  example: 99
+      responses:
+        "200":
+          description: Сообщение отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message_id:
+                    type: integer
+                    example: 105
+        "400":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Нет доступа или канал только для чтения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /chat?action=messages&source=public:
+    get:
+      tags: [Chat]
+      summary: Получить сообщения публичного чата
+      description: Не требует авторизации.
+      parameters:
+        - in: query
+          name: source
+          required: true
+          schema:
+            type: string
+            enum: [public]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 60
+      responses:
+        "200":
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChatMessage'
+
+  /chat?action=send&source=public:
+    post:
+      tags: [Chat]
+      summary: Отправить сообщение в публичный чат
+      description: |
+        Авторизация опциональна. Если передать `X-Auth-Token` — никнейм и роль
+        берутся из аккаунта. Без токена — из поля `nickname` в теле.
+      parameters:
+        - in: query
+          name: source
+          required: true
+          schema:
+            type: string
+            enum: [public]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 1000
+                  example: "Привет всем!"
+                nickname:
+                  type: string
+                  maxLength: 32
+                  description: Отображаемое имя (если не авторизован)
+                  example: "Гость"
+                reply_to_id:
+                  type: integer
+                  nullable: true
+                  example: null
+      responses:
+        "200":
+          description: Сообщение отправлено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /chat?action=delete:
+    post:
+      tags: [Chat]
+      summary: Удалить сообщение (только admin/owner)
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message_id]
+              properties:
+                message_id:
+                  type: integer
+                  example: 101
+      responses:
+        "200":
+          description: Сообщение удалено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  # ══════════════════════════════════════════════════════
+  # QUOTES  → func2url["quotes"]
+  # ══════════════════════════════════════════════════════
+
+  /quotes:
+    get:
+      tags: [Quotes]
+      summary: Получить котировки для бегущей строки
+      description: |
+        Возвращает актуальные котировки. Кеш 120 секунд.
+
+        Источники данных:
+        - **MOEX** (ISS): IMOEX, SBER, GAZP, NVTK, LKOH — задержка ~15 мин
+        - **Finnhub**: XAU/USD, XAG/USD, BRENT, NG, BTC/USD — реальное время
+      responses:
+        "200":
+          description: Котировки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quotes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quote'
+                  updated_at:
+                    type: integer
+                    description: Unix timestamp последнего обновления
+                    example: 1712920800
+
+  # ══════════════════════════════════════════════════════
+  # TELEGRAM  → func2url["tg-vip-bot"]
+  # ══════════════════════════════════════════════════════
+
+  /tg-vip-bot?action=status:
+    get:
+      tags: [Telegram]
+      summary: Статус привязки Telegram
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Статус привязки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  linked:
+                    type: boolean
+                    example: true
+                  telegram_username:
+                    type: string
+                    nullable: true
+                    example: "trader_tg"
+
+  /tg-vip-bot?action=gen_link:
+    get:
+      tags: [Telegram]
+      summary: Сгенерировать ссылку для привязки Telegram
+      description: |
+        Возвращает deep-link на @rtrader_vip_bot. Ссылка действует **15 минут**.
+        Пользователь переходит по ссылке в Telegram — бот автоматически привязывает аккаунт.
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Ссылка сгенерирована
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    example: "https://t.me/rtrader_vip_bot?start=abc123xyz"
+                  expires_in:
+                    type: integer
+                    description: Время жизни ссылки в секундах
+                    example: 900
+
+  /tg-vip-bot?action=unlink:
+    post:
+      tags: [Telegram]
+      summary: Отвязать Telegram от аккаунта
+      security:
+        - UserToken: []
+      responses:
+        "200":
+          description: Telegram отвязан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Telegram отвязан"
+
+  # ══════════════════════════════════════════════════════
+  # REVIEWS  → func2url["reviews"]
+  # ══════════════════════════════════════════════════════
+
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: Получить одобренные отзывы
+      description: Публичный эндпоинт, авторизация не нужна.
+      responses:
+        "200":
+          description: Список отзывов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+
+    post:
+      tags: [Reviews]
+      summary: Отправить отзыв на модерацию
+      description: Публичный эндпоинт. Отзыв сохраняется как неодобренный, видим после проверки администратором.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, text]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                  example: "Алексей"
+                status:
+                  type: string
+                  maxLength: 100
+                  description: Должность / статус автора отзыва
+                  example: "Трейдер, 3 года"
+                text:
+                  type: string
+                  maxLength: 2000
+                  example: "Отличный клуб, много полезного контента!"
+      responses:
+        "201":
+          description: Отзыв сохранён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  id:
+                    type: integer
+                    example: 12
+
+  # ══════════════════════════════════════════════════════
+  # ADMIN  → func2url["admin"]
+  # ══════════════════════════════════════════════════════
+
+  /admin?action=stats:
+    get:
+      tags: [Admin]
+      summary: Общая статистика клуба
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_users:
+                    type: integer
+                    example: 312
+                  new_users_30d:
+                    type: integer
+                    example: 47
+                  active_subscriptions:
+                    type: integer
+                    example: 198
+                  pending_payments:
+                    type: integer
+                    example: 5
+                  blocked_users:
+                    type: integer
+                    example: 3
+
+  /admin?action=users:
+    get:
+      tags: [Admin]
+      summary: Список пользователей
+      security:
+        - AdminToken: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Поиск по никнейму или email
+          example: "trader"
+      responses:
+        "200":
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+
+  /admin?action=block_user:
+    post:
+      tags: [Admin]
+      summary: Заблокировать пользователя
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: integer
+                  example: 42
+      responses:
+        "200":
+          description: Пользователь заблокирован
+
+  /admin?action=unblock_user:
+    post:
+      tags: [Admin]
+      summary: Разблокировать пользователя
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: integer
+                  example: 42
+      responses:
+        "200":
+          description: Пользователь разблокирован
+
+  /admin?action=set_role:
+    post:
+      tags: [Admin]
+      summary: Изменить роль пользователя
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, role]
+              properties:
+                user_id:
+                  type: integer
+                  example: 42
+                role:
+                  type: string
+                  enum: [subscriber, admin, owner]
+                  example: "admin"
+      responses:
+        "200":
+          description: Роль изменена
+
+  /admin?action=payments:
+    get:
+      tags: [Admin]
+      summary: Список заявок на оплату
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Список платежей
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  payments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        user_id:
+                          type: integer
+                        nickname:
+                          type: string
+                        email:
+                          type: string
+                        plan:
+                          type: string
+                        status:
+                          type: string
+                        receipt_url:
+                          type: string
+                        created_at:
+                          type: string
+                          format: date-time
+
+  /admin?action=approve_payment:
+    post:
+      tags: [Admin]
+      summary: Одобрить заявку на оплату
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id]
+              properties:
+                payment_id:
+                  type: integer
+                  example: 15
+      responses:
+        "200":
+          description: Заявка одобрена
+
+  /admin?action=reject_payment:
+    post:
+      tags: [Admin]
+      summary: Отклонить заявку на оплату
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_id]
+              properties:
+                payment_id:
+                  type: integer
+                  example: 15
+      responses:
+        "200":
+          description: Заявка отклонена
+
+  /admin?action=grant_access:
+    post:
+      tags: [Admin]
+      summary: Выдать доступ пользователю вручную
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, plan, days]
+              properties:
+                user_id:
+                  type: integer
+                  example: 42
+                plan:
+                  type: string
+                  enum: [week, month, quarter, halfyear, loyal]
+                  example: "month"
+                days:
+                  type: integer
+                  example: 30
+      responses:
+        "200":
+          description: Доступ выдан
+
+  /admin?action=invites:
+    get:
+      tags: [Admin]
+      summary: Список пригласительных кодов
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Список инвайтов
+
+  /admin?action=create_invite:
+    post:
+      tags: [Admin]
+      summary: Создать пригласительный код
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [days]
+              properties:
+                days:
+                  type: integer
+                  description: Количество дней подписки по инвайту
+                  example: 30
+      responses:
+        "200":
+          description: Код создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: "INV-ABCD1234"
+
+  # ══════════════════════════════════════════════════════
+  # ADMIN STATS  → func2url["admin-stats"]
+  # ══════════════════════════════════════════════════════
+
+  /admin-stats?action=overview:
+    get:
+      tags: [Admin Stats]
+      summary: Сводная финансовая статистика
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Обзор
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active_subscriptions:
+                    type: integer
+                    example: 198
+                  total_users:
+                    type: integer
+                    example: 312
+                  new_users_30d:
+                    type: integer
+                    example: 47
+                  payments_30d:
+                    type: integer
+                    example: 63
+                  revenue_30d:
+                    type: integer
+                    description: Выручка за 30 дней в рублях
+                    example: 156870
+                  pending_payments:
+                    type: integer
+                    example: 5
+                  expiring_7d:
+                    type: integer
+                    description: Подписок истекает в ближайшие 7 дней
+                    example: 12
+
+  /admin-stats?action=revenue:
+    get:
+      tags: [Admin Stats]
+      summary: Выручка по периоду
+      security:
+        - AdminToken: []
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            enum: [30, 90, 365]
+          example: 30
+      responses:
+        "200":
+          description: Данные по выручке
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_revenue:
+                    type: integer
+                    example: 156870
+                  total_payments:
+                    type: integer
+                    example: 63
+                  breakdown:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        plan:
+                          type: string
+                          example: "month"
+                        count:
+                          type: integer
+                          example: 30
+                        revenue:
+                          type: integer
+                          example: 74700
+
+  /admin-stats?action=registrations:
+    get:
+      tags: [Admin Stats]
+      summary: Регистрации по дням
+      security:
+        - AdminToken: []
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            maximum: 365
+            default: 30
+          example: 30
+      responses:
+        "200":
+          description: График регистраций
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registrations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2026-04-01"
+                        count:
+                          type: integer
+                          example: 5
+
+  /admin-stats?action=expiring:
+    get:
+      tags: [Admin Stats]
+      summary: Пользователи с истекающей подпиской
+      security:
+        - AdminToken: []
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            maximum: 90
+            default: 30
+          example: 7
+      responses:
+        "200":
+          description: Список истекающих подписок
+
+  # ══════════════════════════════════════════════════════
+  # ADMIN PRICING  → func2url["admin-pricing"]
+  # ══════════════════════════════════════════════════════
+
+  /admin-pricing?action=list:
+    get:
+      tags: [Admin Pricing]
+      summary: Список тарифов с ценами
+      security:
+        - AdminToken: []
+      responses:
+        "200":
+          description: Тарифы
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        plan_key:
+                          type: string
+                          example: "month"
+                        name:
+                          type: string
+                          example: "Месяц"
+                        price:
+                          type: integer
+                          example: 2490
+                        days:
+                          type: integer
+                          example: 30
+                        is_active:
+                          type: boolean
+                          example: true
+
+  /admin-pricing?action=update:
+    post:
+      tags: [Admin Pricing]
+      summary: Обновить цену тарифа
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_key, price]
+              properties:
+                plan_key:
+                  type: string
+                  enum: [week, month, quarter, halfyear, loyal]
+                  example: "month"
+                price:
+                  type: integer
+                  example: 2990
+      responses:
+        "200":
+          description: Цена обновлена
+
+  /admin-pricing?action=toggle:
+    post:
+      tags: [Admin Pricing]
+      summary: Включить / выключить тариф
+      security:
+        - AdminToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_key, is_active]
+              properties:
+                plan_key:
+                  type: string
+                  example: "week"
+                is_active:
+                  type: boolean
+                  example: false
+      responses:
+        "200":
+          description: Статус тарифа изменён
