@@ -18,6 +18,8 @@ VALID_CHANNELS = {"intraday", "chat", "metals", "oil", "products", "video", "tec
 BOT_NICKNAME = "TG-канал"
 BOT_ROLE = "admin"
 
+OWNER_NICKNAMES = {"RTrader11", "RTrading", "RTrader11_4Ever"}
+
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -77,7 +79,7 @@ def handler(event: dict, context) -> dict:
                 (%s, %s, 'club', %s, %s, %s, FALSE)
             RETURNING id, created_at
             """,
-            (channel, text or None, nickname, BOT_ROLE, image_url or None),
+            (channel, text or None, nickname, "owner" if nickname in OWNER_NICKNAMES else BOT_ROLE, image_url or None),
         )
         row = cur.fetchone()
         conn.commit()
