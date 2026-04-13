@@ -74,7 +74,7 @@ def handler(event: dict, context) -> dict:
             INSERT INTO club_chat
                 (channel, text, source, public_nickname, public_role, image_url, is_hidden)
             VALUES
-                (%s, %s, 'public', %s, %s, %s, FALSE)
+                (%s, %s, 'club', %s, %s, %s, FALSE)
             RETURNING id, created_at
             """,
             (channel, text or None, nickname, BOT_ROLE, image_url or None),
