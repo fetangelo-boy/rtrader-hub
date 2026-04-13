@@ -149,34 +149,39 @@ export default function MediaUpload({ value, onChange }: Props) {
     setError("");
     setVideoProgress(0);
 
-    // Видео — через presigned URL напрямую в S3 (без лимита размера)
+    // Видео — бинарный POST напрямую в функцию, с прогрессом через XHR
     if (type === "video") {
       try {
         const mime = file.type || "video/mp4";
-        setVideoProgress(5);
-        const urlRes = await fetch(VIDEO_UPLOAD_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Auth-Token": getAdminToken() },
-          body: JSON.stringify({ filename: file.name, mime }),
-        });
-        const urlData = await urlRes.json();
-        if (!urlRes.ok) { setError(urlData.error || "Ошибка получения URL"); setUploading(null); return; }
-        setVideoProgress(15);
-
-        await new Promise<void>((resolve, reject) => {
+        const url = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}`;
+        const token = getAdminToken();
+        const cdnUrl = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("PUT", urlData.upload_url);
+          xhr.open("POST", url);
           xhr.setRequestHeader("Content-Type", mime);
+          xhr.setRequestHeader("X-Auth-Token", token);
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setVideoProgress(15 + Math.round((e.loaded / e.total) * 78));
+            if (e.lengthComputable) setVideoProgress(Math.round((e.loaded / e.total) * 95));
           };
-          xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`S3 ${xhr.status}`));
+          xhr.onload = () => {
+            if (xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.url || data.cdn_url) resolve(data.url || data.cdn_url);
+                else reject(new Error(data.error || "Нет URL в ответе"));
+              } catch { reject(new Error("Ошибка ответа сервера")); }
+            } else {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                reject(new Error(data.error || `Ошибка ${xhr.status}`));
+              } catch { reject(new Error(`Ошибка ${xhr.status}`)); }
+            }
+          };
           xhr.onerror = () => reject(new Error("Ошибка сети"));
           xhr.send(file);
         });
-
         setVideoProgress(100);
-        addItem({ type: "video", url: urlData.cdn_url });
+        addItem({ type: "video", url: cdnUrl });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Ошибка загрузки");
       } finally {

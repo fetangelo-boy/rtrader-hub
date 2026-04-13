@@ -209,34 +209,33 @@ export default function VideoSection() {
         if (!videoFile) { setUploadError("Выберите файл"); setUploading(false); return; }
         setUploadProgress(5);
 
-        // Шаг 1: получаем presigned URL от backend
         const mime = videoFile.type || "video/mp4";
-        const urlRes = await fetch(VIDEO_UPLOAD_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Auth-Token": token },
-          body: JSON.stringify({ filename: videoFile.name, mime }),
-        });
-        const urlData = await urlRes.json();
-        if (!urlRes.ok) { setUploadError(urlData.error || "Ошибка получения URL"); return; }
-        setUploadProgress(15);
+        const uploadUrl = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(videoFile.name)}&mime=${encodeURIComponent(mime)}`;
 
-        // Шаг 2: заливаем файл напрямую в S3 через PUT (без base64, без лимита)
-        await new Promise<void>((resolve, reject) => {
+        finalVideoUrl = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("PUT", urlData.upload_url);
+          xhr.open("POST", uploadUrl);
           xhr.setRequestHeader("Content-Type", mime);
+          xhr.setRequestHeader("X-Auth-Token", token!);
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) {
-              setUploadProgress(15 + Math.round((e.loaded / e.total) * 75));
+            if (e.lengthComputable) setUploadProgress(5 + Math.round((e.loaded / e.total) * 87));
+          };
+          xhr.onload = () => {
+            if (xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                if (data.url || data.cdn_url) resolve(data.url || data.cdn_url);
+                else reject(new Error(data.error || "Нет URL"));
+              } catch { reject(new Error("Ошибка ответа")); }
+            } else {
+              try { reject(new Error(JSON.parse(xhr.responseText).error || `Ошибка ${xhr.status}`)); }
+              catch { reject(new Error(`Ошибка ${xhr.status}`)); }
             }
           };
-          xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`S3 error ${xhr.status}`));
           xhr.onerror = () => reject(new Error("Ошибка сети"));
           xhr.send(videoFile);
         });
-
-        finalVideoUrl = urlData.cdn_url;
-        setUploadProgress(92);
+        setUploadProgress(95);
       }
 
       const sendRes = await fetch(`${CHAT_URL}?action=send`, {
