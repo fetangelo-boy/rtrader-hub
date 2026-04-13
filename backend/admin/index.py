@@ -65,19 +65,79 @@ def err(msg: str, status=400):
 PLAN_DAYS = {"week": 7, "month": 30, "quarter": 90, "halfyear": 180, "loyal": 30}
 PLAN_LABELS = {"week": "Неделя", "month": "Месяц", "quarter": "Квартал", "halfyear": "Полгода", "loyal": "Лояльный"}
 
-def notify_user_approved(conn, user_id: int, plan: str, expires_at: datetime):
+def _get_tg_user(conn, user_id: int):
     with conn.cursor() as cur:
         cur.execute("SELECT telegram_id, nickname FROM club_users WHERE id = %s", (user_id,))
         row = cur.fetchone()
-    if not row or not row[0]:
+    return row if (row and row[0]) else None
+
+def notify_grant_access(conn, user_id: int, plan: str, expires_at: datetime):
+    row = _get_tg_user(conn, user_id)
+    if not row:
         return
     tg_send(row[0], (
-        f"✅ <b>Доступ открыт!</b>\n\n"
+        f"🎉 <b>Добро пожаловать в RTrading CLUB!</b>\n\n"
+        f"Привет, <b>{row[1]}</b>!\n"
+        f"Тариф: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
+        f"Доступ открыт до: <b>{expires_at.strftime('%d.%m.%Y')}</b>\n\n"
+        f"Добро пожаловать на борт 🚀"
+    ))
+
+def notify_extend_access(conn, user_id: int, plan: str, expires_at: datetime):
+    row = _get_tg_user(conn, user_id)
+    if not row:
+        return
+    tg_send(row[0], (
+        f"✅ <b>Подписка продлена!</b>\n\n"
         f"Привет, <b>{row[1]}</b>!\n"
         f"Тариф: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
         f"Действует до: <b>{expires_at.strftime('%d.%m.%Y')}</b>\n\n"
+        f"Продолжаем торговать вместе 📈"
+    ))
+
+def notify_reduce_access(conn, user_id: int, plan: str, expires_at: datetime):
+    row = _get_tg_user(conn, user_id)
+    if not row:
+        return
+    tg_send(row[0], (
+        f"📅 <b>Срок подписки изменён</b>\n\n"
+        f"Привет, <b>{row[1]}</b>!\n"
+        f"Тариф: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
+        f"Новая дата окончания: <b>{expires_at.strftime('%d.%m.%Y')}</b>\n\n"
+        f"Если есть вопросы — напиши администратору."
+    ))
+
+def notify_approve_payment(conn, user_id: int, plan: str, expires_at: datetime):
+    row = _get_tg_user(conn, user_id)
+    if not row:
+        return
+    tg_send(row[0], (
+        f"✅ <b>Оплата подтверждена!</b>\n\n"
+        f"Привет, <b>{row[1]}</b>!\n"
+        f"Тариф: <b>{PLAN_LABELS.get(plan, plan)}</b>\n"
+        f"Доступ открыт до: <b>{expires_at.strftime('%d.%m.%Y')}</b>\n\n"
         f"Добро пожаловать в RTrading CLUB 🚀"
     ))
+
+def notify_deactivate(conn, user_id: int):
+    row = _get_tg_user(conn, user_id)
+    if not row:
+        return
+    tg_send(row[0], (
+        f"🔒 <b>Доступ закрыт</b>\n\n"
+        f"Привет, <b>{row[1]}</b>!\n"
+        f"Твоя подписка была деактивирована администратором.\n\n"
+        f"Если это ошибка или есть вопросы — свяжись с нами."
+    ))
+
+def notify_set_expires(conn, user_id: int, plan: str, old_expires: datetime | None, new_expires: datetime):
+    row = _get_tg_user(conn, user_id)
+    if not row:
+        return
+    if old_expires and new_expires < old_expires:
+        notify_reduce_access(conn, user_id, plan, new_expires)
+    else:
+        notify_extend_access(conn, user_id, plan, new_expires)
 
 def get_user_by_token(conn, token: str):
     with conn.cursor() as cur:
@@ -208,7 +268,7 @@ def handler(event: dict, context) -> dict:
                 UPDATE club_subscriptions SET status = 'active', expires_at = %s WHERE id = %s
             """, (expires_at, payment_id))
             conn.commit()
-        notify_user_approved(conn, user_id, plan, expires_at)
+        notify_approve_payment(conn, user_id, plan, expires_at)
         return ok({"message": "Подписка активирована"})
 
     if action == "reject_payment":
@@ -327,7 +387,7 @@ def handler(event: dict, context) -> dict:
             """, (sub_id, user["id"], json.dumps({"plan": plan, "days": days, "expires_at": expires_at.isoformat()})))
             conn.commit()
 
-        notify_user_approved(conn, user_id, plan, expires_at)
+        notify_grant_access(conn, user_id, plan, expires_at)
         return ok({"message": f"Доступ выдан до {expires_at.strftime('%d.%m.%Y')}", "sub_id": sub_id})
 
     if action == "set_expires":
@@ -336,11 +396,11 @@ def handler(event: dict, context) -> dict:
         if not sub_id or not new_expires:
             return err("subscription_id и expires_at обязательны")
         with conn.cursor() as cur:
-            cur.execute("SELECT s.user_id, s.plan FROM club_subscriptions s WHERE s.id = %s", (sub_id,))
+            cur.execute("SELECT s.user_id, s.plan, s.expires_at FROM club_subscriptions s WHERE s.id = %s", (sub_id,))
             row = cur.fetchone()
             if not row:
                 return err("Подписка не найдена")
-            sub_user_id, sub_plan = row
+            sub_user_id, sub_plan, old_expires = row[0], row[1], row[2]
             cur.execute("UPDATE club_subscriptions SET expires_at = %s, status = 'active' WHERE id = %s", (new_expires, sub_id))
             cur.execute("""
                 INSERT INTO club_subscriptions_log (subscription_id, admin_id, action, details)
@@ -348,7 +408,7 @@ def handler(event: dict, context) -> dict:
             """, (sub_id, user["id"], json.dumps({"expires_at": new_expires})))
             conn.commit()
         expires_dt = datetime.fromisoformat(new_expires.replace("Z", "+00:00")) if isinstance(new_expires, str) else new_expires
-        notify_user_approved(conn, sub_user_id, sub_plan or "month", expires_dt)
+        notify_set_expires(conn, sub_user_id, sub_plan or "month", old_expires, expires_dt)
         return ok({"message": "Дата окончания обновлена"})
 
     if action == "deactivate":
@@ -356,15 +416,18 @@ def handler(event: dict, context) -> dict:
         if not sub_id:
             return err("subscription_id обязателен")
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM club_subscriptions WHERE id = %s", (sub_id,))
-            if not cur.fetchone():
+            cur.execute("SELECT user_id FROM club_subscriptions WHERE id = %s", (sub_id,))
+            row = cur.fetchone()
+            if not row:
                 return err("Подписка не найдена")
+            deact_user_id = row[0]
             cur.execute("UPDATE club_subscriptions SET status = 'rejected', expires_at = NOW() WHERE id = %s", (sub_id,))
             cur.execute("""
                 INSERT INTO club_subscriptions_log (subscription_id, admin_id, action, details)
                 VALUES (%s, %s, 'deactivate', %s)
             """, (sub_id, user["id"], json.dumps({"deactivated_by": user["nickname"]})))
             conn.commit()
+        notify_deactivate(conn, deact_user_id)
         return ok({"message": "Доступ деактивирован"})
 
     if action == "change_plan":
