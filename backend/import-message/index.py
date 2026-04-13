@@ -16,9 +16,11 @@ CORS = {
 VALID_CHANNELS = {"intraday", "chat", "metals", "oil", "products", "video", "tech", "access_info", "knowledge"}
 
 BOT_NICKNAME = "TG-канал"
-BOT_ROLE = "admin"
+BOT_ROLE = "member"
 
 OWNER_NICKNAMES = {"RTrader11", "RTrading", "RTrader11_4Ever"}
+ADMIN_NICKNAMES = {"Andrew", "Дима"}
+VALID_ROLES = {"owner", "admin", "member"}
 
 
 def get_conn():
@@ -59,6 +61,9 @@ def handler(event: dict, context) -> dict:
     text = body.get("text", "").strip()
     nickname = body.get("nickname", BOT_NICKNAME).strip()[:64]
     image_url = body.get("image_url", None)
+    reply_to_id = body.get("reply_to_id", None)
+    reply_to_nickname = body.get("reply_to_nickname", None)
+    reply_to_text = body.get("reply_to_text", None)
 
     if not channel:
         return err("Поле 'channel' обязательно")
@@ -69,17 +74,27 @@ def handler(event: dict, context) -> dict:
     if text and len(text) > 4000:
         return err("Текст слишком длинный (макс. 4000 символов)")
 
+    if nickname in OWNER_NICKNAMES:
+        role = "owner"
+    elif nickname in ADMIN_NICKNAMES:
+        role = "admin"
+    else:
+        passed_role = body.get("role", "").strip()
+        role = passed_role if passed_role in VALID_ROLES else BOT_ROLE
+
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO club_chat
-                (channel, text, source, public_nickname, public_role, image_url, is_hidden)
+                (channel, text, source, public_nickname, public_role, image_url, is_hidden,
+                 reply_to_id, reply_to_nickname, reply_to_text)
             VALUES
-                (%s, %s, 'club', %s, %s, %s, FALSE)
+                (%s, %s, 'club', %s, %s, %s, FALSE, %s, %s, %s)
             RETURNING id, created_at
             """,
-            (channel, text or None, nickname, "owner" if nickname in OWNER_NICKNAMES else BOT_ROLE, image_url or None),
+            (channel, text or None, nickname, role, image_url or None,
+             reply_to_id or None, reply_to_nickname or None, reply_to_text or None),
         )
         row = cur.fetchone()
         conn.commit()
