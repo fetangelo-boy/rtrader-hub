@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import func2url from "../../../backend/func2url.json";
 
 const CHAT_URL = (func2url as Record<string, string>).chat;
-const UPLOAD_URL = (func2url as Record<string, string>)["upload-image"];
+const VIDEO_UPLOAD_URL = (func2url as Record<string, string>)["video-upload-url"];
 const POLL_INTERVAL = 30000;
 
 type UploadMode = "file" | "link";
@@ -207,23 +207,36 @@ export default function VideoSection() {
         setUploadProgress(80);
       } else {
         if (!videoFile) { setUploadError("Выберите файл"); setUploading(false); return; }
-        setUploadProgress(10);
-        const b64 = await new Promise<string>((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = () => { setUploadProgress(40); res((reader.result as string).split(",")[1]); };
-          reader.onerror = rej;
-          reader.readAsDataURL(videoFile);
-        });
-        setUploadProgress(60);
-        const upRes = await fetch(UPLOAD_URL, {
+        setUploadProgress(5);
+
+        // Шаг 1: получаем presigned URL от backend
+        const mime = videoFile.type || "video/mp4";
+        const urlRes = await fetch(VIDEO_UPLOAD_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-Admin-Token": token },
-          body: JSON.stringify({ file: b64, filename: videoFile.name }),
+          headers: { "Content-Type": "application/json", "X-Auth-Token": token },
+          body: JSON.stringify({ filename: videoFile.name, mime }),
         });
-        const upData = await upRes.json();
-        if (!upRes.ok) { setUploadError(upData.error || "Ошибка загрузки"); return; }
-        finalVideoUrl = upData.url;
-        setUploadProgress(85);
+        const urlData = await urlRes.json();
+        if (!urlRes.ok) { setUploadError(urlData.error || "Ошибка получения URL"); return; }
+        setUploadProgress(15);
+
+        // Шаг 2: заливаем файл напрямую в S3 через PUT (без base64, без лимита)
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", urlData.upload_url);
+          xhr.setRequestHeader("Content-Type", mime);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              setUploadProgress(15 + Math.round((e.loaded / e.total) * 75));
+            }
+          };
+          xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`S3 error ${xhr.status}`));
+          xhr.onerror = () => reject(new Error("Ошибка сети"));
+          xhr.send(videoFile);
+        });
+
+        finalVideoUrl = urlData.cdn_url;
+        setUploadProgress(92);
       }
 
       const sendRes = await fetch(`${CHAT_URL}?action=send`, {
