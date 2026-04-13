@@ -48,11 +48,21 @@ export function RoleBadge({ role }: { role: string }) {
   return null;
 }
 
+const OWNER_AVATAR = "https://cdn.poehali.dev/projects/39a4ac3c-06be-41f0-97f1-cc3959260964/bucket/c3403a0e-54b2-46e6-85af-1b13315b44ed.png";
+
 export function UserAvatar({ name, role, size = "sm" }: { name: string; role: string; size?: "sm" | "md" }) {
   const initials = name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
   const sz = size === "md" ? "w-10 h-10 text-sm" : "w-7 h-7 text-xs";
+  if (role === "owner") {
+    return (
+      <img
+        src={OWNER_AVATAR}
+        alt={name}
+        className={`${sz} rounded-full object-cover flex-shrink-0`}
+      />
+    );
+  }
   const bg =
-    role === "owner" ? "bg-primary text-primary-foreground" :
     role === "admin" ? "bg-blue-500/20 text-blue-400" :
     "bg-secondary text-muted-foreground";
   return (
