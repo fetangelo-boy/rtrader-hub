@@ -152,6 +152,89 @@ def handler(event: dict, context) -> dict:
             rows = cur.fetchall()
         return ok({"registrations": [{"date": str(r[0]), "count": r[1]} for r in rows], "days": days})
 
+    if action == "subscribers_csv":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.nickname, u.email, u.telegram_username, u.role,
+                       s.plan, s.status, s.expires_at, s.created_at
+                FROM club_users u
+                LEFT JOIN LATERAL (
+                    SELECT plan, status, expires_at, created_at FROM club_subscriptions
+                    WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1
+                ) s ON true
+                WHERE u.role != 'owner'
+                ORDER BY s.created_at DESC NULLS LAST
+            """)
+            rows = cur.fetchall()
+        PLAN_LABELS = {"week": "1 неделя", "month": "1 месяц", "quarter": "3 месяца", "halfyear": "6 месяцев", "loyal": "Лояльный"}
+        STATUS_LABELS = {"active": "Активна", "expired": "Истекла", "pending": "Ожидает", "rejected": "Отклонено"}
+        lines = ["Никнейм,Email,Telegram,Роль,Тариф,Статус,Действует до,Дата подписки"]
+        for r in rows:
+            expires = r[6].strftime("%d.%m.%Y") if r[6] else ""
+            created = r[7].strftime("%d.%m.%Y") if r[7] else ""
+            plan = PLAN_LABELS.get(r[4] or "", r[4] or "")
+            status = STATUS_LABELS.get(r[5] or "", r[5] or "")
+            tg = f"@{r[2]}" if r[2] else ""
+            lines.append(f'"{r[0] or ""}","{r[1]}","{tg}","{r[3] or ""}","{plan}","{status}","{expires}","{created}"')
+        return {
+            "statusCode": 200,
+            "headers": {**CORS, "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": "attachment; filename=subscribers.csv"},
+            "body": "\n".join(lines),
+        }
+
+    if action == "payments_csv":
+        days = int(qs.get("days", 365))
+        with conn.cursor() as cur:
+            cur.execute("SELECT plan_key, price FROM pricing_plans")
+            prices = {r[0]: r[1] for r in cur.fetchall()}
+            cur.execute("""
+                SELECT u.nickname, u.email, u.telegram_username,
+                       s.plan, s.created_at, s.status
+                FROM club_subscriptions s
+                JOIN club_users u ON s.user_id = u.id
+                WHERE s.status IN ('active', 'expired')
+                  AND s.created_at > NOW() - INTERVAL '{days} days'
+                  AND u.role NOT IN ('owner', 'admin')
+                ORDER BY s.created_at DESC
+            """.replace("{days}", str(days)))
+            rows = cur.fetchall()
+        PLAN_LABELS = {"week": "1 неделя", "month": "1 месяц", "quarter": "3 месяца", "halfyear": "6 месяцев", "loyal": "Лояльный"}
+        lines = ["Никнейм,Email,Telegram,Тариф,Сумма (₽),Дата"]
+        for r in rows:
+            amount = prices.get(r[3] or "", PLAN_PRICE.get(r[3] or "", 0))
+            created = r[4].strftime("%d.%m.%Y") if r[4] else ""
+            plan = PLAN_LABELS.get(r[3] or "", r[3] or "")
+            tg = f"@{r[2]}" if r[2] else ""
+            lines.append(f'"{r[0] or ""}","{r[1]}","{tg}","{plan}","{amount}","{created}"')
+        return {
+            "statusCode": 200,
+            "headers": {**CORS, "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": "attachment; filename=payments.csv"},
+            "body": "\n".join(lines),
+        }
+
+    if action == "users_csv":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT nickname, email, telegram_username, role, created_at
+                FROM club_users
+                WHERE role != 'owner'
+                ORDER BY created_at DESC
+            """)
+            rows = cur.fetchall()
+        lines = ["Никнейм,Email,Telegram,Роль,Дата регистрации"]
+        for r in rows:
+            created = r[4].strftime("%d.%m.%Y") if r[4] else ""
+            tg = f"@{r[2]}" if r[2] else ""
+            lines.append(f'"{r[0] or ""}","{r[1]}","{tg}","{r[3] or ""}","{created}"')
+        return {
+            "statusCode": 200,
+            "headers": {**CORS, "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": "attachment; filename=users.csv"},
+            "body": "\n".join(lines),
+        }
+
     if action == "consents_csv":
         with conn.cursor() as cur:
             cur.execute("""

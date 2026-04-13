@@ -57,12 +57,24 @@ function ClickableCard({
   );
 }
 
+async function downloadCsv(url: string, filename: string, headers: Record<string, string>) {
+  const r = await fetch(url, { headers });
+  const text = await r.text();
+  const blob = new Blob(["\uFEFF" + text, ""], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 export default function AdminStats() {
   const navigate = useNavigate();
   const [revDays, setRevDays] = useState(30);
   const [expDays, setExpDays] = useState(14);
   const [csvLoading, setCsvLoading] = useState(false);
   const [showPending, setShowPending] = useState(false);
+  const [exportLoading, setExportLoading] = useState<string | null>(null);
 
   const downloadConsentsCSV = async () => {
     setCsvLoading(true);
@@ -292,7 +304,7 @@ export default function AdminStats() {
       </div>
 
       {/* Кто скоро теряет доступ */}
-      <div className="glass-card p-5">
+      <div className="glass-card p-5 mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-russo text-base text-white">Истекают подписки</h2>
           <div className="flex gap-1">
@@ -331,6 +343,50 @@ export default function AdminStats() {
         ) : (
           <div className="text-white/30 text-sm">Нет истекающих подписок в этом периоде</div>
         )}
+      </div>
+
+      {/* Выгрузки */}
+      <div className="glass-card p-5">
+        <h2 className="font-russo text-base text-white mb-1">Выгрузка данных</h2>
+        <p className="text-xs text-white/30 mb-5">CSV-файлы открываются в Excel и Google Таблицах</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            { key: "subscribers_csv", label: "Подписчики", desc: "Все подписчики с тарифами и статусами", icon: "Users", color: "neon-yellow", filename: `subscribers_${new Date().toISOString().slice(0,10)}.csv` },
+            { key: "payments_csv", label: "Оплаты за год", desc: "История оплат за последние 12 месяцев", icon: "CreditCard", color: "green-400", filename: `payments_${new Date().toISOString().slice(0,10)}.csv`, extra: "&days=365" },
+            { key: "users_csv", label: "Все пользователи", desc: "Полный список зарегистрированных", icon: "UserPlus", color: "neon-cyan", filename: `users_${new Date().toISOString().slice(0,10)}.csv` },
+            { key: "consents_csv", label: "Согласия", desc: "Лог принятия пользовательского соглашения", icon: "FileCheck", color: "white", filename: `consents_${new Date().toISOString().slice(0,10)}.csv` },
+          ].map(item => (
+            <button
+              key={item.key}
+              disabled={exportLoading === item.key}
+              onClick={async () => {
+                setExportLoading(item.key);
+                try {
+                  await downloadCsv(
+                    `${STATS_URL}?action=${item.key}${item.extra || ""}`,
+                    item.filename,
+                    authHeaders()
+                  );
+                } finally {
+                  setExportLoading(null);
+                }
+              }}
+              className="flex items-center gap-3 p-4 rounded-xl bg-white/3 border border-white/8 hover:bg-white/6 hover:border-white/15 transition-all text-left disabled:opacity-60 disabled:cursor-wait"
+            >
+              <div className={`w-10 h-10 rounded-xl bg-${item.color}/10 border border-${item.color}/20 flex items-center justify-center shrink-0`}>
+                {exportLoading === item.key
+                  ? <Icon name="Loader2" size={16} className={`text-${item.color} animate-spin`} />
+                  : <Icon name={item.icon} size={16} className={`text-${item.color}`} />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={`text-sm font-semibold text-${item.color}`}>{item.label}</div>
+                <div className="text-xs text-white/30 mt-0.5">{item.desc}</div>
+              </div>
+              <Icon name="Download" size={14} className="text-white/20 shrink-0" />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
