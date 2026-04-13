@@ -339,9 +339,9 @@ export default function VideoSection() {
             >
               <Icon name={videoFile ? "CheckCircle" : "Film"} size={22} className={videoFile ? "text-primary" : "text-muted-foreground"} />
               <span className="text-xs text-muted-foreground text-center">
-                {videoFile ? videoFile.name : "Нажмите или перетащите видео (MP4, WebM, MOV · до 200 МБ)"}
+                {videoFile ? videoFile.name : "Нажмите или перетащите видео (MP4, WebM, MKV, MOV · до 200 МБ)"}
               </span>
-              <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" className="hidden" onChange={handleFileChange} />
+              <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" className="hidden" onChange={handleFileChange} />
             </div>
           )}
 

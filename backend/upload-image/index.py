@@ -23,7 +23,7 @@ SCHEMA = "t_p67093308_rtrader_hub"
 
 IMAGE_EXTS = {"jpg", "jpeg", "png", "gif", "webp"}
 AUDIO_EXTS = {"mp3", "ogg", "wav", "m4a", "aac"}
-VIDEO_EXTS = {"mp4", "webm", "mov", "avi"}
+VIDEO_EXTS = {"mp4", "webm", "mov", "avi", "mkv"}
 
 CONTENT_TYPE_MAP = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
@@ -31,7 +31,7 @@ CONTENT_TYPE_MAP = {
     "mp3": "audio/mpeg", "ogg": "audio/ogg", "wav": "audio/wav",
     "m4a": "audio/mp4", "aac": "audio/aac",
     "mp4": "video/mp4", "webm": "video/webm",
-    "mov": "video/quicktime", "avi": "video/x-msvideo",
+    "mov": "video/quicktime", "avi": "video/x-msvideo", "mkv": "video/x-matroska",
 }
 
 SIZE_LIMITS = {
