@@ -150,7 +150,7 @@ export default function AdminStats() {
           value={o.payments_30d ?? "—"}
           icon="CreditCard"
           color="green-400"
-          onClick={() => navigate("/rt-manage/subscriptions?filter=active")}
+          onClick={() => navigate("/rt-manage/subscriptions?filter=paid_30d")}
         />
         <ClickableCard
           label="Выручка за 30 дней"

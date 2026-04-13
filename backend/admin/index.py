@@ -351,6 +351,44 @@ def handler(event: dict, context) -> dict:
                 query += " AND (s.status != 'active' OR s.expires_at < NOW())"
             elif status_filter == "pending":
                 query += " AND s.status = 'pending'"
+            elif status_filter == "paid_30d":
+                # Оплатили (активированы) за последние 30 дней — по дате записи в лог grant_access
+                query = """
+                    SELECT DISTINCT ON (u.id)
+                           u.id, u.email, u.nickname, u.is_blocked, u.role,
+                           s.id as sub_id, s.plan, s.status, s.expires_at, l.created_at as paid_at,
+                           u.telegram_id, u.telegram_username
+                    FROM club_subscriptions_log l
+                    JOIN club_subscriptions s ON s.id = l.subscription_id
+                    JOIN club_users u ON s.user_id = u.id
+                    WHERE l.action = 'grant_access'
+                      AND l.created_at >= NOW() - INTERVAL '30 days'
+                      AND u.role NOT IN ('owner', 'admin')
+                """
+                if search:
+                    query += " AND (u.email ILIKE %s OR u.nickname ILIKE %s)"
+                query += " ORDER BY u.id, l.created_at DESC LIMIT 200"
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                now = datetime.now(timezone.utc)
+                result = []
+                for r in rows:
+                    exp = r[8]
+                    if exp and exp.tzinfo is None:
+                        exp = exp.replace(tzinfo=timezone.utc)
+                    paid_at = r[9]
+                    sub_status = r[7]
+                    computed = "none"
+                    if sub_status == "active":
+                        computed = "expiring" if exp and exp <= now + timedelta(days=7) else "active"
+                    result.append({
+                        "user_id": r[0], "email": r[1], "nickname": r[2], "is_blocked": r[3], "role": r[4],
+                        "sub_id": r[5], "plan": r[6], "status": computed,
+                        "expires_at": exp.isoformat() if exp else None,
+                        "created_at": paid_at.isoformat() if paid_at else None,
+                        "telegram_id": r[10], "telegram_username": r[11],
+                    })
+                return ok({"subscribers": result})
             query += " ORDER BY s.created_at DESC NULLS LAST LIMIT 200"
             cur.execute(query, params)
             rows = cur.fetchall()
