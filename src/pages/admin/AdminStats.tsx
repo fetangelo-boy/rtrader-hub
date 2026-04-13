@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import func2url from "../../../backend/func2url.json";
 import { cn } from "@/lib/utils";
 
 const STATS_URL = (func2url as Record<string, string>)["admin-stats"];
+const SUBS_URL = (func2url as Record<string, string>)["subscriptions"];
 
 function authHeaders() {
   return { "X-Auth-Token": getAdminToken() || "", "Content-Type": "application/json" };
@@ -16,27 +18,51 @@ async function fetchStats(action: string, params = "") {
   return r.json();
 }
 
+async function fetchPendingList() {
+  const r = await fetch(`${SUBS_URL}?action=list`, { headers: authHeaders() });
+  const data = await r.json();
+  return (data.subscribers ?? []).filter((s: { status: string }) => s.status === "pending");
+}
+
 const PLAN_NAMES: Record<string, string> = {
   week: "Неделя", month: "Месяц", quarter: "Квартал", halfyear: "Полгода", loyal: "Лояльный"
 };
 
-function Card({ label, value, sub, icon, color }: { label: string; value: string | number; sub?: string; icon: string; color: string }) {
+function ClickableCard({
+  label, value, sub, icon, color, onClick
+}: {
+  label: string; value: string | number; sub?: string; icon: string; color: string; onClick?: () => void;
+}) {
   return (
-    <div className={cn("glass-card p-5 flex flex-col gap-2", `border-${color}/20`)}>
+    <div
+      onClick={onClick}
+      className={cn(
+        "glass-card p-5 flex flex-col gap-2",
+        `border-${color}/20`,
+        onClick ? "cursor-pointer hover:bg-white/5 hover:scale-[1.02] transition-all duration-150" : ""
+      )}
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs text-white/40 uppercase tracking-wider">{label}</span>
         <Icon name={icon} size={16} className={`text-${color}`} />
       </div>
       <div className={cn("text-3xl font-russo", `text-${color}`)}>{value}</div>
       {sub && <div className="text-xs text-white/30">{sub}</div>}
+      {onClick && (
+        <div className="text-[10px] text-white/20 flex items-center gap-1 mt-1">
+          <Icon name="ExternalLink" size={10} /> перейти к списку
+        </div>
+      )}
     </div>
   );
 }
 
 export default function AdminStats() {
+  const navigate = useNavigate();
   const [revDays, setRevDays] = useState(30);
   const [expDays, setExpDays] = useState(14);
   const [csvLoading, setCsvLoading] = useState(false);
+  const [showPending, setShowPending] = useState(false);
 
   const downloadConsentsCSV = async () => {
     setCsvLoading(true);
@@ -71,6 +97,13 @@ export default function AdminStats() {
     queryFn: () => fetchStats("expiring", `&days=${expDays}`),
   });
 
+  const { data: pendingList, isLoading: pendingLoading } = useQuery({
+    queryKey: ["admin-stats-pending"],
+    queryFn: fetchPendingList,
+    enabled: showPending,
+    refetchInterval: showPending ? 30_000 : false,
+  });
+
   const o = overview || {};
 
   return (
@@ -97,32 +130,130 @@ export default function AdminStats() {
 
       {/* Сводка */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        <Card label="Активных подписок" value={o.active_subscriptions ?? "—"} icon="Users" color="neon-yellow" />
-        <Card label="Всего пользователей" value={o.total_users ?? "—"} sub={`+${o.new_users_30d ?? 0} за 30 дней`} icon="UserPlus" color="neon-cyan" />
-        <Card label="Оплат за 30 дней" value={o.payments_30d ?? "—"} icon="CreditCard" color="green-400" />
-        <Card label="Выручка за 30 дней" value={o.revenue_30d ? `${o.revenue_30d.toLocaleString("ru")} ₽` : "—"} icon="TrendingUp" color="neon-yellow" />
+        <ClickableCard
+          label="Активных подписок"
+          value={o.active_subscriptions ?? "—"}
+          icon="Users"
+          color="neon-yellow"
+          onClick={() => navigate("/rt-manage/subscriptions?filter=active")}
+        />
+        <ClickableCard
+          label="Всего пользователей"
+          value={o.total_users ?? "—"}
+          sub={`+${o.new_users_30d ?? 0} за 30 дней`}
+          icon="UserPlus"
+          color="neon-cyan"
+          onClick={() => navigate("/rt-manage/subscriptions")}
+        />
+        <ClickableCard
+          label="Оплат за 30 дней"
+          value={o.payments_30d ?? "—"}
+          icon="CreditCard"
+          color="green-400"
+          onClick={() => navigate("/rt-manage/subscriptions?filter=active")}
+        />
+        <ClickableCard
+          label="Выручка за 30 дней"
+          value={o.revenue_30d ? `${o.revenue_30d.toLocaleString("ru")} ₽` : "—"}
+          icon="TrendingUp"
+          color="neon-yellow"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-8">
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-orange-400/10 border border-orange-400/20 flex items-center justify-center">
+        {/* Истекающие — кликабельно, ведёт в подписчиков */}
+        <button
+          onClick={() => navigate("/rt-manage/subscriptions?filter=expiring")}
+          className="glass-card p-4 flex items-center gap-3 text-left hover:bg-white/5 hover:scale-[1.02] transition-all duration-150 cursor-pointer"
+        >
+          <div className="w-10 h-10 rounded-xl bg-orange-400/10 border border-orange-400/20 flex items-center justify-center shrink-0">
             <Icon name="Clock" size={18} className="text-orange-400" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xl font-russo text-orange-400">{o.expiring_7d ?? "—"}</div>
             <div className="text-xs text-white/40">Истекают в ближайшие 7 дней</div>
+            <div className="text-[10px] text-white/20 flex items-center gap-1 mt-1">
+              <Icon name="ExternalLink" size={10} /> перейти к списку
+            </div>
           </div>
-        </div>
-        <div className="glass-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/20 flex items-center justify-center">
+        </button>
+
+        {/* Ожидают — раскрывает список прямо здесь */}
+        <button
+          onClick={() => setShowPending((v) => !v)}
+          className={cn(
+            "glass-card p-4 flex items-center gap-3 text-left transition-all duration-150 cursor-pointer",
+            showPending ? "bg-red-400/10 border-red-400/30" : "hover:bg-white/5 hover:scale-[1.02]"
+          )}
+        >
+          <div className="w-10 h-10 rounded-xl bg-red-400/10 border border-red-400/20 flex items-center justify-center shrink-0">
             <Icon name="AlertCircle" size={18} className="text-red-400" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xl font-russo text-red-400">{o.pending_payments ?? "—"}</div>
             <div className="text-xs text-white/40">Ожидают одобрения оплаты</div>
+            <div className="text-[10px] text-white/20 flex items-center gap-1 mt-1">
+              <Icon name={showPending ? "ChevronUp" : "ChevronDown"} size={10} />
+              {showPending ? "скрыть список" : "показать список"}
+            </div>
           </div>
-        </div>
+        </button>
       </div>
+
+      {/* Раскрывающийся список ожидающих */}
+      {showPending && (
+        <div className="glass-card p-5 mb-8 border-red-400/20">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-russo text-base text-white flex items-center gap-2">
+              <Icon name="AlertCircle" size={15} className="text-red-400" />
+              Ожидают одобрения оплаты
+            </h2>
+            <button
+              onClick={() => navigate("/rt-manage/subscriptions?filter=pending")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-300 border border-sky-400/30 bg-sky-400/5 hover:bg-sky-400/15 transition-all"
+            >
+              <Icon name="ExternalLink" size={12} /> Открыть в подписчиках
+            </button>
+          </div>
+
+          {pendingLoading ? (
+            <div className="flex items-center gap-2 text-white/30 text-sm py-4">
+              <Icon name="Loader2" size={14} className="animate-spin" /> Загружаю...
+            </div>
+          ) : pendingList?.length ? (
+            <div className="space-y-1">
+              {pendingList.map((s: { user_id: number; nickname: string; email: string; plan: string | null; created_at: string | null }) => (
+                <div
+                  key={s.user_id}
+                  onClick={() => navigate("/rt-manage/subscriptions?filter=pending")}
+                  className="flex items-center gap-3 py-2.5 px-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-red-400/20 cursor-pointer transition-all"
+                >
+                  <div className="w-8 h-8 rounded-full bg-red-400/15 border border-red-400/25 flex items-center justify-center shrink-0">
+                    <Icon name="User" size={13} className="text-red-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white">{s.nickname}</div>
+                    <div className="text-xs text-white/30">{s.email}</div>
+                  </div>
+                  {s.plan && (
+                    <span className="text-[10px] text-sky-300 bg-sky-400/10 px-2 py-0.5 rounded border border-sky-400/20 shrink-0">
+                      {PLAN_NAMES[s.plan] || s.plan}
+                    </span>
+                  )}
+                  {s.created_at && (
+                    <div className="text-xs text-white/25 w-20 text-right shrink-0">
+                      {new Date(s.created_at).toLocaleDateString("ru")}
+                    </div>
+                  )}
+                  <Icon name="ChevronRight" size={14} className="text-white/20 shrink-0" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-white/30 text-sm py-4 text-center">Нет заявок, ожидающих одобрения</div>
+          )}
+        </div>
+      )}
 
       {/* Выручка по периоду */}
       <div className="glass-card p-5 mb-6">
