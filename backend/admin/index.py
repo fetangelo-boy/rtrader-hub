@@ -142,7 +142,13 @@ def notify_set_expires(conn, user_id: int, plan: str, old_expires: datetime | No
     row = _get_tg_user(conn, user_id)
     if not row:
         return
-    if old_expires and new_expires < old_expires:
+    old = old_expires
+    if old and old.tzinfo is None:
+        old = old.replace(tzinfo=timezone.utc)
+    new = new_expires
+    if new and new.tzinfo is None:
+        new = new.replace(tzinfo=timezone.utc)
+    if old and new < old:
         notify_reduce_access(conn, user_id, plan, new_expires)
     else:
         notify_extend_access(conn, user_id, plan, new_expires)
