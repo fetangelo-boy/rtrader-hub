@@ -237,7 +237,8 @@ def handler(event: dict, context) -> dict:
                        COALESCE(u.nickname, m.public_nickname) AS nickname,
                        COALESCE(u.role, m.public_role) AS role,
                        m.user_id,
-                       m.reply_to_id, m.reply_to_nickname, m.reply_to_text, m.image_url
+                       m.reply_to_id, m.reply_to_nickname, m.reply_to_text, m.image_url,
+                       m.video_url, m.video_title
                 FROM club_chat m
                 LEFT JOIN club_users u ON m.user_id = u.id
                 WHERE m.channel = %s AND m.source = 'club' AND m.is_hidden = FALSE
@@ -248,7 +249,7 @@ def handler(event: dict, context) -> dict:
             "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
             "nickname": r[3] or "TG-канал", "role": r[4] or "admin", "user_id": r[5],
             "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8],
-            "image_url": r[9]
+            "image_url": r[9], "video_url": r[10], "video_title": r[11]
         } for r in rows]
         return ok({"messages": messages})
 
@@ -270,9 +271,11 @@ def handler(event: dict, context) -> dict:
         text = body.get("text", "").strip()
         reply_to_id = body.get("reply_to_id")
         image_url = body.get("image_url") or None
+        video_url = body.get("video_url") or None
+        video_title = (body.get("video_title") or "").strip()[:200] or None
         if channel not in VALID_CHANNELS:
             return err("Неверный канал")
-        if not text and not image_url:
+        if not text and not image_url and not video_url:
             return err("Сообщение не может быть пустым")
         if len(text) > 2000:
             return err("Сообщение слишком длинное")
@@ -303,9 +306,9 @@ def handler(event: dict, context) -> dict:
 
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text, image_url, is_hidden)
-                VALUES (%s, %s, %s, 'club', %s, %s, %s, %s, %s)
-            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text, image_url, is_auto_hidden))
+                INSERT INTO club_chat (user_id, channel, text, source, reply_to_id, reply_to_nickname, reply_to_text, image_url, video_url, video_title, is_hidden)
+                VALUES (%s, %s, %s, 'club', %s, %s, %s, %s, %s, %s, %s)
+            """, (user["id"], channel, text, reply_to_id or None, reply_to_nickname, reply_to_text, image_url, video_url, video_title, is_auto_hidden))
             conn.commit()
 
         if is_auto_hidden:

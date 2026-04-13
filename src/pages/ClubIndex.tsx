@@ -4,6 +4,7 @@ import Icon from "@/components/ui/icon";
 import { NAV_ITEMS } from "@/components/trade/data";
 import { TickerBar, RightPanel } from "@/components/trade/Shared";
 import { ChatSection, SubscribeSection } from "@/components/trade/SectionContent";
+import VideoSection from "@/components/trade/VideoSection";
 import { useAuth } from "@/context/AuthContext";
 import func2url from "../../backend/func2url.json";
 
@@ -16,7 +17,7 @@ function renderSection(active: string) {
     case "metals":      return <ChatSection sectionId="metals" title="Металлы" />;
     case "oil":         return <ChatSection sectionId="oil" title="Газ / Нефть" />;
     case "products":    return <ChatSection sectionId="products" title="Продукты" />;
-    case "video":       return <ChatSection sectionId="video" title="Видео-обзоры" readonly />;
+    case "video":       return <VideoSection />;
     case "tech":        return <ChatSection sectionId="tech" title="Технические вопросы" />;
     case "access_info": return <ChatSection sectionId="access_info" title="Доступ и VPN" readonly />;
     case "knowledge":   return <ChatSection sectionId="knowledge" title="База знаний" readonly />;
