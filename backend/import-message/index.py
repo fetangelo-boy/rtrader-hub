@@ -19,7 +19,7 @@ BOT_NICKNAME = "TG-канал"
 BOT_ROLE = "member"
 
 OWNER_NICKNAMES = {"RTrader11", "RTrading", "RTrader11_4Ever"}
-ADMIN_NICKNAMES = {"Andrew", "Дима"}
+ADMIN_NICKNAMES = {"Andrew", "Дима", "admin"}
 VALID_ROLES = {"owner", "admin", "member"}
 
 
