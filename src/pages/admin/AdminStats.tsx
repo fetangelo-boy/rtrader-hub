@@ -7,7 +7,7 @@ import func2url from "../../../backend/func2url.json";
 import { cn } from "@/lib/utils";
 
 const STATS_URL = (func2url as Record<string, string>)["admin-stats"];
-const SUBS_URL = (func2url as Record<string, string>)["subscriptions"];
+const ADMIN_URL = (func2url as Record<string, string>)["admin"];
 
 function authHeaders() {
   return { "X-Auth-Token": getAdminToken() || "", "Content-Type": "application/json" };
@@ -19,7 +19,7 @@ async function fetchStats(action: string, params = "") {
 }
 
 async function fetchPendingList() {
-  const r = await fetch(`${SUBS_URL}?action=list`, { headers: authHeaders() });
+  const r = await fetch(`${ADMIN_URL}?action=list`, { headers: authHeaders() });
   const data = await r.json();
   return (data.subscribers ?? []).filter((s: { status: string }) => s.status === "pending");
 }
