@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Отклонение без API-ключа",
+      "method": "POST",
+      "path": "/",
+      "headers": {},
+      "body": {"channel": "chat", "text": "test"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Неверный API-ключ"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Отклонение с неверным ключом",
+      "method": "POST",
+      "path": "/",
+      "headers": {"X-Api-Key": "wrong-key"},
+      "body": {"channel": "chat", "text": "test"},
+      "expectedStatus": 401,
+      "expectedBody": {"error": "Неверный API-ключ"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
