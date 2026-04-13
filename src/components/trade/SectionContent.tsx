@@ -60,13 +60,13 @@ export function ChatSection({ sectionId, title, readonly = false }: { sectionId:
       const res = await fetch(`${CHAT_URL}?action=messages&channel=${sectionId}&limit=60`, {
         headers: { "X-Auth-Token": token },
       });
-      if (!res.ok) return;
+      if (!res.ok) { setLoading(false); return; }
       const data = await res.json();
       const newMsgs: ChatMessage[] = data.messages || [];
       if (newMsgs.length === 0) { setLoading(false); return; }
 
       const maxId = Math.max(...newMsgs.map(m => m.id));
-      if (maxId > latestIdRef.current) {
+      if (maxId >= latestIdRef.current) {
         latestIdRef.current = maxId;
         setMessages(newMsgs);
         if (initial || isAtBottomRef.current) {
