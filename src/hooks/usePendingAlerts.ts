@@ -44,6 +44,16 @@ function playChime() {
 const API = "https://functions.poehali.dev/58c8224f-b1da-4e1a-9c7a-09bf808c3c47";
 const POLL_INTERVAL = 30_000;
 const SEEN_KEY = "admin_seen_pending_ids";
+const SOUND_KEY = "admin_sound_enabled";
+
+function getSoundEnabled(): boolean {
+  try {
+    const v = localStorage.getItem(SOUND_KEY);
+    return v === null ? true : v === "true";
+  } catch {
+    return true;
+  }
+}
 
 function getSeenIds(): Set<number> {
   try {
@@ -71,7 +81,16 @@ export function usePendingAlerts() {
   const [pending, setPending] = useState<PendingEntry[]>([]);
   const [newCount, setNewCount] = useState(0);
   const [showBanner, setShowBanner] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(getSoundEnabled);
   const prevCountRef = useRef<number | null>(null);
+
+  const toggleSound = useCallback(() => {
+    setSoundEnabledState((prev) => {
+      const next = !prev;
+      localStorage.setItem(SOUND_KEY, String(next));
+      return next;
+    });
+  }, []);
 
   const fetchPending = useCallback(async () => {
     const token = getAdminToken();
@@ -94,7 +113,7 @@ export function usePendingAlerts() {
       if (freshIds.length > 0) {
         setNewCount(freshIds.length);
         setShowBanner(true);
-        playChime();
+        if (getSoundEnabled()) playChime();
       } else if (prevCountRef.current !== null && all.length !== prevCountRef.current) {
         setNewCount(0);
       }
@@ -121,5 +140,5 @@ export function usePendingAlerts() {
 
   const totalPending = pending.length;
 
-  return { pending, totalPending, newCount, showBanner, dismissBanner };
+  return { pending, totalPending, newCount, showBanner, dismissBanner, soundEnabled, toggleSound };
 }

@@ -37,7 +37,7 @@ export default function AdminLayout({ children, onLogout }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const username = getAdminUsername();
-  const { totalPending, newCount, showBanner, dismissBanner, pending } = usePendingAlerts();
+  const { totalPending, newCount, showBanner, dismissBanner, pending, soundEnabled, toggleSound } = usePendingAlerts();
 
   const handleGoToPending = () => {
     dismissBanner();
@@ -55,6 +55,18 @@ export default function AdminLayout({ children, onLogout }: Props) {
           <span className="font-russo text-xs tracking-wider text-white/60">RTRADER <span className="text-white/25">/ admin</span></span>
         </a>
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleSound}
+            title={soundEnabled ? "Звук включён — нажми чтобы выключить" : "Звук выключен — нажми чтобы включить"}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${
+              soundEnabled
+                ? "text-sky-300 bg-sky-400/10 border-sky-400/25 hover:bg-sky-400/20"
+                : "text-white/30 bg-white/5 border-white/10 hover:text-white/50 hover:bg-white/10"
+            }`}
+          >
+            <Icon name={soundEnabled ? "Volume2" : "VolumeX"} size={13} />
+            <span className="hidden sm:inline">{soundEnabled ? "Звук вкл" : "Звук выкл"}</span>
+          </button>
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
             <div className="w-5 h-5 rounded-full brand-gradient-bg flex items-center justify-center flex-shrink-0">
               <Icon name="User" size={11} className="text-black" />
