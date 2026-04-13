@@ -1,8 +1,10 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
+import func2url from "../../../backend/func2url.json";
 
 const UPLOAD_URL = "https://functions.poehali.dev/b53b7edb-1a17-424c-8ad3-25cc3b256dd0";
+const VIDEO_UPLOAD_URL = (func2url as Record<string, string>)["video-upload-url"];
 
 type MediaType = "image" | "audio" | "video" | "link";
 
@@ -20,13 +22,13 @@ interface Props {
 const ACCEPT_MAP: Record<Exclude<MediaType, "link">, string> = {
   image: "image/*",
   audio: "audio/mp3,audio/mpeg,audio/ogg,audio/wav,audio/m4a,audio/aac,.mp3,.ogg,.wav,.m4a,.aac",
-  video: "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov",
+  video: "video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv",
 };
 
 const HINT_MAP: Record<Exclude<MediaType, "link">, string> = {
   image: "JPG, PNG, WebP — до 10 МБ",
   audio: "MP3, OGG, WAV, M4A — до 20 МБ",
-  video: "MP4, WebM, MOV — до 50 МБ",
+  video: "MP4, WebM, MKV, MOV — любой размер",
 };
 
 const ICON_MAP: Record<MediaType, string> = {
@@ -43,7 +45,26 @@ const LABEL_MAP: Record<MediaType, string> = {
   link: "Ссылка",
 };
 
+function toEmbedUrl(url: string): string | null {
+  const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vimeo = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  const rutube = url.match(/rutube\.ru\/video\/([a-zA-Z0-9]+)/);
+  if (rutube) return `https://rutube.ru/play/embed/${rutube[1]}`;
+  const vk = url.match(/vk\.com\/video(-?\d+)_(\d+)/);
+  if (vk) return `https://vk.com/video_ext.php?oid=${vk[1]}&id=${vk[2]}&hd=2`;
+  return null;
+}
+
+function isDirectVideo(url: string) {
+  return /\.(mp4|webm|mov|mkv|avi)(\?|$)/i.test(url);
+}
+
 function MediaPreview({ item, onRemove }: { item: MediaItem; onRemove: () => void }) {
+  const embedUrl = item.type === "video" ? toEmbedUrl(item.url) : null;
+  const direct = item.type === "video" && isDirectVideo(item.url);
+
   return (
     <div className="relative group flex flex-col gap-1.5 bg-white/5 border border-white/10 rounded-xl p-2.5">
       <div className="flex items-center gap-2 mb-1">
@@ -71,9 +92,20 @@ function MediaPreview({ item, onRemove }: { item: MediaItem; onRemove: () => voi
       )}
 
       {item.type === "video" && (
-        <video controls className="w-full rounded-lg max-h-36 bg-black/30">
-          <source src={item.url} />
-        </video>
+        direct ? (
+          <video controls className="w-full rounded-lg max-h-36 bg-black/30">
+            <source src={item.url} />
+          </video>
+        ) : embedUrl ? (
+          <iframe src={embedUrl} className="w-full rounded-lg" style={{ height: 140 }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen frameBorder="0" />
+        ) : (
+          <a href={item.url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-[#FFD700]/70 hover:text-[#FFD700] truncate transition-colors">
+            <Icon name="ExternalLink" size={12} /> {item.url}
+          </a>
+        )
       )}
 
       {item.type === "link" && (
@@ -89,11 +121,14 @@ function MediaPreview({ item, onRemove }: { item: MediaItem; onRemove: () => voi
 export default function MediaUpload({ value, onChange }: Props) {
   const [activeTab, setActiveTab] = useState<MediaType>("image");
   const [uploading, setUploading] = useState<MediaType | null>(null);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [error, setError] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
-  const [uploadMode, setUploadMode] = useState<"url" | "file">("file");
+  const [imageUploadMode, setImageUploadMode] = useState<"file" | "url">("file");
+  const [videoUploadMode, setVideoUploadMode] = useState<"file" | "link">("file");
   const [imageUrl, setImageUrl] = useState("");
+  const [videoLinkUrl, setVideoLinkUrl] = useState("");
   const fileRefs = {
     image: useRef<HTMLInputElement>(null),
     audio: useRef<HTMLInputElement>(null),
@@ -112,16 +147,53 @@ export default function MediaUpload({ value, onChange }: Props) {
     if (type === "link") return;
     setUploading(type);
     setError("");
+    setVideoProgress(0);
+
+    // Видео — через presigned URL напрямую в S3 (без лимита размера)
+    if (type === "video") {
+      try {
+        const mime = file.type || "video/mp4";
+        setVideoProgress(5);
+        const urlRes = await fetch(VIDEO_UPLOAD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Auth-Token": getAdminToken() },
+          body: JSON.stringify({ filename: file.name, mime }),
+        });
+        const urlData = await urlRes.json();
+        if (!urlRes.ok) { setError(urlData.error || "Ошибка получения URL"); setUploading(null); return; }
+        setVideoProgress(15);
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("PUT", urlData.upload_url);
+          xhr.setRequestHeader("Content-Type", mime);
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setVideoProgress(15 + Math.round((e.loaded / e.total) * 78));
+          };
+          xhr.onload = () => xhr.status < 300 ? resolve() : reject(new Error(`S3 ${xhr.status}`));
+          xhr.onerror = () => reject(new Error("Ошибка сети"));
+          xhr.send(file);
+        });
+
+        setVideoProgress(100);
+        addItem({ type: "video", url: urlData.cdn_url });
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Ошибка загрузки");
+      } finally {
+        setUploading(null);
+        setTimeout(() => setVideoProgress(0), 1000);
+      }
+      return;
+    }
+
+    // Изображения и аудио — через base64
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64 = (e.target?.result as string) || "";
         const res = await fetch(UPLOAD_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Admin-Token": getAdminToken(),
-          },
+          headers: { "Content-Type": "application/json", "X-Admin-Token": getAdminToken() },
           body: JSON.stringify({ file: base64, filename: file.name }),
         });
         const data = await res.json();
@@ -158,6 +230,12 @@ export default function MediaUpload({ value, onChange }: Props) {
     setImageUrl("");
   };
 
+  const addVideoByLink = () => {
+    if (!videoLinkUrl.trim()) return;
+    addItem({ type: "video", url: videoLinkUrl.trim() });
+    setVideoLinkUrl("");
+  };
+
   const TABS: MediaType[] = ["image", "audio", "video", "link"];
 
   return (
@@ -183,16 +261,16 @@ export default function MediaUpload({ value, onChange }: Props) {
       {activeTab === "image" && (
         <div className="flex flex-col gap-2">
           <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg w-fit">
-            <button type="button" onClick={() => setUploadMode("file")}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${uploadMode === "file" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
+            <button type="button" onClick={() => setImageUploadMode("file")}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${imageUploadMode === "file" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
               С диска
             </button>
-            <button type="button" onClick={() => setUploadMode("url")}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${uploadMode === "url" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
+            <button type="button" onClick={() => setImageUploadMode("url")}
+              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${imageUploadMode === "url" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
               По ссылке
             </button>
           </div>
-          {uploadMode === "file" ? (
+          {imageUploadMode === "file" ? (
             <DropZone
               accept={ACCEPT_MAP.image}
               hint={HINT_MAP.image}
@@ -233,15 +311,57 @@ export default function MediaUpload({ value, onChange }: Props) {
       )}
 
       {activeTab === "video" && (
-        <DropZone
-          accept={ACCEPT_MAP.video}
-          hint={HINT_MAP.video}
-          icon="Video"
-          uploading={uploading === "video"}
-          fileRef={fileRefs.video}
-          onFileChange={e => onFileChange(e, "video")}
-          onDrop={file => uploadFile(file, "video")}
-        />
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg w-fit">
+            <button type="button" onClick={() => setVideoUploadMode("file")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${videoUploadMode === "file" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
+              <Icon name="Upload" size={11} /> Файл
+            </button>
+            <button type="button" onClick={() => setVideoUploadMode("link")}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all ${videoUploadMode === "link" ? "bg-white/10 text-white" : "text-white/35 hover:text-white"}`}>
+              <Icon name="Link" size={11} /> Ссылка
+            </button>
+          </div>
+
+          {videoUploadMode === "file" ? (
+            <>
+              <DropZone
+                accept={ACCEPT_MAP.video}
+                hint={HINT_MAP.video}
+                icon="Video"
+                uploading={uploading === "video"}
+                fileRef={fileRefs.video}
+                onFileChange={e => onFileChange(e, "video")}
+                onDrop={file => uploadFile(file, "video")}
+              />
+              {uploading === "video" && videoProgress > 0 && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-white/40">
+                    <span>Загрузка...</span><span>{videoProgress}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-full bg-[#FFD700]/60 rounded-full transition-all duration-200" style={{ width: `${videoProgress}%` }} />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <input
+                value={videoLinkUrl}
+                onChange={e => setVideoLinkUrl(e.target.value)}
+                placeholder="YouTube, Rutube, VK Видео, Vimeo, Telegram..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#FFD700]/40 transition-colors"
+              />
+              <p className="text-[11px] text-white/25">Поддерживаются: YouTube, Rutube, VK Видео, Vimeo, Telegram</p>
+              <button type="button" onClick={addVideoByLink}
+                disabled={!videoLinkUrl.trim()}
+                className="self-start flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/8 border border-white/10 text-xs text-white/70 hover:text-white hover:bg-white/12 transition-all disabled:opacity-40">
+                <Icon name="Plus" size={12} /> Добавить
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "link" && (
