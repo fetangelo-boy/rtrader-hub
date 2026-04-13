@@ -35,7 +35,11 @@ import psycopg2
 
 def tg_send(chat_id, text):
     token = os.environ.get("TELEGRAM_VIP_BOT_TOKEN", "")
-    if not token or not chat_id:
+    if not token:
+        print(f"[TG] ERROR: TELEGRAM_VIP_BOT_TOKEN not set")
+        return
+    if not chat_id:
+        print(f"[TG] ERROR: chat_id is empty")
         return
     try:
         data = json.dumps({"chat_id": chat_id, "text": text, "parse_mode": "HTML"}).encode()
@@ -43,9 +47,13 @@ def tg_send(chat_id, text):
             f"https://api.telegram.org/bot{token}/sendMessage",
             data=data, headers={"Content-Type": "application/json"}
         )
-        urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
+        resp = urllib.request.urlopen(req, timeout=5)
+        print(f"[TG] OK: sent to {chat_id}, status={resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"[TG] HTTPError {e.code} sending to {chat_id}: {body}")
+    except Exception as ex:
+        print(f"[TG] Exception sending to {chat_id}: {ex}")
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
