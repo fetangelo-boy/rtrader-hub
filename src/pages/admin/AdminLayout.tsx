@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { getAdminUsername } from "@/hooks/useAdminAuth";
+import { usePendingAlerts } from "@/hooks/usePendingAlerts";
 
 interface Props {
   children: React.ReactNode;
@@ -28,9 +29,20 @@ const NAV_CMS = [
   { href: "/rt-manage/cms/author", label: "Об авторе", icon: "User" },
 ];
 
+const PLAN_LABELS: Record<string, string> = {
+  week: "1 нед", month: "1 мес", quarter: "3 мес", halfyear: "6 мес", loyal: "Лояльный",
+};
+
 export default function AdminLayout({ children, onLogout }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
   const username = getAdminUsername();
+  const { totalPending, newCount, showBanner, dismissBanner, pending } = usePendingAlerts();
+
+  const handleGoToPending = () => {
+    dismissBanner();
+    navigate("/rt-manage/subscriptions?filter=pending");
+  };
 
   return (
     <div className="neon-grid-bg min-h-screen font-montserrat text-white flex flex-col">
@@ -66,12 +78,22 @@ export default function AdminLayout({ children, onLogout }: Props) {
               const active = item.href === "/rt-manage"
                 ? location.pathname === item.href
                 : location.pathname.startsWith(item.href);
+              const isSubscriptions = item.href === "/rt-manage/subscriptions";
               return (
                 <Link key={item.href} to={item.href}
                   className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-all ${
                     active ? "bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20" : "text-white/45 hover:text-white hover:bg-white/5"
                   }`}>
-                  <Icon name={item.icon} size={15} />{item.label}
+                  <Icon name={item.icon} size={15} />
+                  <span className="flex-1">{item.label}</span>
+                  {isSubscriptions && totalPending > 0 && (
+                    <span className="relative flex items-center justify-center w-5 h-5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-60 animate-ping" />
+                      <span className="relative inline-flex items-center justify-center rounded-full bg-sky-400 text-black text-[10px] font-black w-5 h-5">
+                        {totalPending}
+                      </span>
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -105,6 +127,77 @@ export default function AdminLayout({ children, onLogout }: Props) {
           {children}
         </main>
       </div>
+
+      {/* Всплывающее уведомление о новых заявках */}
+      {showBanner && newCount > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full animate-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-[#0f1a2e] border border-sky-400/40 rounded-2xl shadow-[0_0_30px_rgba(56,189,248,0.2)] overflow-hidden">
+            {/* Заголовок */}
+            <div className="flex items-center justify-between px-4 py-3 bg-sky-400/10 border-b border-sky-400/20">
+              <div className="flex items-center gap-2">
+                <span className="relative flex items-center justify-center w-5 h-5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-50 animate-ping" />
+                  <span className="relative inline-flex items-center justify-center rounded-full bg-sky-400 text-black text-[10px] font-black w-5 h-5">
+                    {newCount}
+                  </span>
+                </span>
+                <span className="text-sky-300 font-semibold text-sm">
+                  {newCount === 1 ? "Новая заявка на подписку" : `Новых заявок: ${newCount}`}
+                </span>
+              </div>
+              <button
+                onClick={dismissBanner}
+                className="text-white/30 hover:text-white/70 transition-colors"
+              >
+                <Icon name="X" size={15} />
+              </button>
+            </div>
+
+            {/* Список первых заявок */}
+            <div className="px-4 py-3 space-y-2 max-h-48 overflow-y-auto">
+              {pending.slice(0, 3).map((s) => (
+                <div key={s.user_id} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-full bg-sky-400/15 border border-sky-400/30 flex items-center justify-center flex-shrink-0">
+                      <Icon name="User" size={11} className="text-sky-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-white text-xs font-medium truncate">{s.nickname}</div>
+                      <div className="text-white/40 text-[10px] truncate">{s.email}</div>
+                    </div>
+                  </div>
+                  {s.plan && (
+                    <span className="text-[10px] text-sky-300 bg-sky-400/10 border border-sky-400/20 rounded-md px-1.5 py-0.5 flex-shrink-0">
+                      {PLAN_LABELS[s.plan] ?? s.plan}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {pending.length > 3 && (
+                <div className="text-white/30 text-xs text-center pt-1">
+                  и ещё {pending.length - 3}...
+                </div>
+              )}
+            </div>
+
+            {/* Кнопки */}
+            <div className="px-4 pb-4 flex gap-2">
+              <button
+                onClick={handleGoToPending}
+                className="flex-1 py-2 rounded-xl bg-sky-400 text-black text-xs font-bold hover:bg-sky-300 transition-colors"
+              >
+                Открыть заявки
+              </button>
+              <button
+                onClick={dismissBanner}
+                className="px-3 py-2 rounded-xl bg-white/5 text-white/50 text-xs hover:bg-white/10 transition-colors border border-white/10"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

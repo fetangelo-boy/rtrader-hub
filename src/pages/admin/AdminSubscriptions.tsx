@@ -60,7 +60,7 @@ export default function AdminSubscriptions() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("filter") || searchParams.get("status") || "all");
   const [noTgFilter, setNoTgFilter] = useState(false);
   const [selected, setSelected] = useState<Subscriber | null>(null);
   const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | null>(null);
