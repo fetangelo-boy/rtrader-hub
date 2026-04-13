@@ -42,9 +42,7 @@ export function TickerBar() {
   );
 }
 
-export function RoleBadge({ role }: { role: string }) {
-  if (role === "owner") return <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">Автор</span>;
-  if (role === "admin")  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-medium">Админ</span>;
+export function RoleBadge({ role: _ }: { role: string }) {
   return null;
 }
 
