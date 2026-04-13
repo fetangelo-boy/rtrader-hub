@@ -158,57 +158,94 @@ export default function Profile() {
         </div>
 
         {/* Telegram */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">
             <Icon name="Send" size={16} className="text-[#29b6f6]" />
-            Telegram-уведомления
+            Привязка Telegram
           </h2>
+
           {tgLinked === null ? (
             <p className="text-sm text-muted-foreground">Загрузка...</p>
           ) : tgLinked ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-lg bg-green/10 border border-green/20 px-4 py-3">
-                <Icon name="CheckCircle" size={15} className="text-green shrink-0" />
+              <div className="flex items-center gap-3 rounded-lg bg-green/10 border border-green/20 px-4 py-3">
+                <Icon name="CheckCircle" size={18} className="text-green shrink-0" />
                 <div>
-                  <p className="text-sm text-green font-medium">Telegram подключён</p>
-                  {tgUsername && <p className="text-xs text-muted-foreground">@{tgUsername}</p>}
+                  <p className="text-sm text-green font-semibold">Telegram привязан</p>
+                  {tgUsername && <p className="text-xs text-muted-foreground mt-0.5">@{tgUsername}</p>}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Будешь получать напоминания об истечении подписки.</p>
+              <p className="text-xs text-muted-foreground">
+                Ты будешь получать уведомления об изменениях подписки и напоминания об истечении доступа.
+              </p>
               <button onClick={handleUnlinkTg} className="text-xs text-destructive hover:underline">
                 Отвязать Telegram
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {subscription?.status === "active" ? (
-                <div className="rounded-lg border border-[#29b6f6]/30 bg-[#29b6f6]/5 px-4 py-3">
-                  <p className="text-sm text-[#29b6f6] font-medium mb-1">Подключи Telegram ← важно</p>
-                  <p className="text-xs text-muted-foreground">
-                    Ты получишь уведомление за 3 дня и за 1 день до окончания подписки — чтобы не потерять доступ к клубу.
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Подключи Telegram, чтобы получать уведомления о подписке прямо в мессенджер.
+            <div className="space-y-4">
+              {/* Зачем это нужно */}
+              <div className="rounded-lg border border-[#29b6f6]/25 bg-[#29b6f6]/5 px-4 py-3">
+                <p className="text-sm text-[#29b6f6] font-semibold mb-1">Зачем привязывать?</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Чтобы получать уведомления об одобрении подписки, напоминания за 3 дня и за 1 день до окончания доступа.
                 </p>
-              )}
+              </div>
+
+              {/* Пошаговая инструкция */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-foreground uppercase tracking-wide">Как привязать — 3 шага:</p>
+                <div className="space-y-2">
+                  {[
+                    { n: "1", text: 'Нажми кнопку ниже — сгенерируется уникальная ссылка' },
+                    { n: "2", text: 'Открой ссылку в Telegram с того аккаунта, который хочешь привязать' },
+                    { n: "3", text: 'Нажми "Старт" в боте — готово, аккаунт привязан' },
+                  ].map(({ n, text }) => (
+                    <div key={n} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-[#29b6f6]/20 border border-[#29b6f6]/40 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[10px] font-bold text-[#29b6f6]">{n}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Кнопка / ссылка */}
               {!tgLinkUrl ? (
-                <Button onClick={handleConnectTg} disabled={tgLinkLoading} className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white">
-                  <Icon name="Send" size={15} className="mr-2" />
-                  {tgLinkLoading ? "Генерирую ссылку..." : "Получить ссылку для Telegram"}
+                <Button onClick={handleConnectTg} disabled={tgLinkLoading} className="w-full bg-[#29b6f6] hover:bg-[#0288d1] text-white font-semibold">
+                  <Icon name={tgLinkLoading ? "Loader2" : "Send"} size={15} className={cn("mr-2", tgLinkLoading && "animate-spin")} />
+                  {tgLinkLoading ? "Генерирую ссылку..." : "Шаг 1 — Получить ссылку"}
                 </Button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Откройте ссылку в нужном аккаунте Telegram:</p>
+                  <p className="text-xs font-medium text-foreground">Шаг 2 — открой эту ссылку в Telegram:</p>
+                  <a
+                    href={tgLinkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-[#29b6f6] hover:bg-[#0288d1] text-white text-sm font-semibold transition-colors"
+                  >
+                    <Icon name="Send" size={15} />
+                    Открыть в Telegram
+                  </a>
                   <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                    <a href={tgLinkUrl} target="_blank" rel="noreferrer" className="flex-1 text-xs text-[#29b6f6] truncate hover:underline">{tgLinkUrl}</a>
-                    <button onClick={handleCopyTg} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" title="Скопировать">
-                      <Icon name={tgCopied ? "Check" : "Copy"} size={14} className={tgCopied ? "text-green" : ""} />
+                    <span className="flex-1 text-[11px] text-muted-foreground truncate">{tgLinkUrl}</span>
+                    <button onClick={handleCopyTg} className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" title="Скопировать ссылку">
+                      <Icon name={tgCopied ? "Check" : "Copy"} size={13} className={tgCopied ? "text-green" : ""} />
                     </button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">Ссылка действует 15 минут.</p>
-                  <button onClick={() => setTgLinkUrl("")} className="text-xs text-muted-foreground hover:text-foreground underline">Сгенерировать новую</button>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-muted-foreground">Ссылка действует 15 минут</p>
+                    <button onClick={() => setTgLinkUrl("")} className="text-[10px] text-[#29b6f6] hover:underline">
+                      Новая ссылка
+                    </button>
+                  </div>
+                  <div className="rounded-lg bg-muted/50 border border-border px-3 py-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      <span className="font-semibold text-foreground">Шаг 3:</span> в боте нажми кнопку <span className="font-semibold text-foreground">«Старт»</span> — привязка произойдёт автоматически.
+                    </p>
+                  </div>
                 </div>
               )}
               {tgLinkError && <p className="text-xs text-destructive">{tgLinkError}</p>}
