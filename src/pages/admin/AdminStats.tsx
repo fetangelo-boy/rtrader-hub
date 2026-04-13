@@ -19,9 +19,9 @@ async function fetchStats(action: string, params = "") {
 }
 
 async function fetchPendingList() {
-  const r = await fetch(`${ADMIN_URL}?action=list`, { headers: authHeaders() });
+  const r = await fetch(`${ADMIN_URL}?action=subscribers&status=pending`, { headers: authHeaders() });
   const data = await r.json();
-  return (data.subscribers ?? []).filter((s: { status: string }) => s.status === "pending");
+  return data.subscribers ?? [];
 }
 
 const PLAN_NAMES: Record<string, string> = {

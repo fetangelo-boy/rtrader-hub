@@ -191,7 +191,11 @@ def handler(event: dict, context) -> dict:
             new_users_30d = cur.fetchone()[0]
             cur.execute("SELECT COUNT(*) FROM club_subscriptions WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW())")
             active_subscriptions = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM club_subscriptions WHERE status = 'pending'")
+            cur.execute("""
+                SELECT COUNT(*) FROM club_subscriptions s
+                JOIN club_users u ON s.user_id = u.id
+                WHERE s.status = 'pending' AND u.role NOT IN ('owner', 'admin')
+            """)
             pending_payments = cur.fetchone()[0]
             cur.execute("SELECT COUNT(*) FROM club_users WHERE is_blocked = TRUE")
             blocked_users = cur.fetchone()[0]

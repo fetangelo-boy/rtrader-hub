@@ -80,8 +80,12 @@ def handler(event: dict, context) -> dict:
             revenue_30d = sum(prices.get(p, PLAN_PRICE.get(p, 0)) * cnt for p, cnt in plans_30d)
             payments_30d = sum(cnt for _, cnt in plans_30d)
 
-            # Ожидают одобрения
-            cur.execute("SELECT COUNT(*) FROM club_subscriptions WHERE status='pending'")
+            # Ожидают одобрения (исключаем owner-ов)
+            cur.execute("""
+                SELECT COUNT(*) FROM club_subscriptions s
+                JOIN club_users u ON s.user_id = u.id
+                WHERE s.status = 'pending' AND u.role NOT IN ('owner', 'admin')
+            """)
             pending = cur.fetchone()[0]
 
             # Истекают в течение 7 дней
