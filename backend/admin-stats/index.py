@@ -17,8 +17,14 @@ CORS = {
 
 PLAN_PRICE = {"week": 990, "month": 2490, "quarter": 5990, "halfyear": 9990, "loyal": 1990}
 
+SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "public")
+
 def get_conn():
-    return psycopg2.connect(os.environ["DATABASE_URL"])
+    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    with conn.cursor() as cur:
+        cur.execute(f"SET search_path TO {SCHEMA}, public")
+    conn.commit()
+    return conn
 
 def ok(data):
     return {"statusCode": 200, "headers": {**CORS, "Content-Type": "application/json"}, "body": json.dumps(data, ensure_ascii=False, default=str)}
