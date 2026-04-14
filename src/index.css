@@ -394,6 +394,12 @@
   --bg-deep: #f0f2f7;
 }
 
+/* Секция hero всегда тёмная */
+.light-theme #hero,
+.light-theme #hero * {
+  --override-dark: 1;
+}
+
 .light-theme body {
   background-color: #f0f2f7;
   color: #111827;
@@ -525,4 +531,28 @@
 }
 .light-theme ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
+}
+
+/* Карточки карусели — буллеты и разделители */
+.light-theme .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+.light-theme .text-white\/55 {
+  color: rgba(17, 24, 39, 0.7) !important;
+}
+.light-theme .text-white\/65 {
+  color: rgba(17, 24, 39, 0.75) !important;
+}
+
+/* Навигация в светлой теме */
+.light-theme nav .text-white\/50 {
+  color: rgba(17, 24, 39, 0.55) !important;
+}
+
+/* Карточки на светлом фоне получают тень */
+.light-theme .carousel-card,
+.light-theme .glass-card {
+  box-shadow:
+    0 2px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.05);
 }
