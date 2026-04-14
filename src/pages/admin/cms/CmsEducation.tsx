@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import VideoGuide from "@/components/admin/VideoGuide";
+import { uploadVideo } from "@/lib/uploadVideo";
 import { cmsGet, cmsCreate, cmsUpdate, cmsToggleVisible, cmsDelete } from "@/lib/adminCms";
 import func2url from "../../../../backend/func2url.json";
 
@@ -48,31 +49,7 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
     setError("");
     setProgress(0);
     try {
-      const token = getAdminToken();
-      const mime = file.type || "video/mp4";
-      const presignRes = await fetch(
-        `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`
-      );
-      if (!presignRes.ok) {
-        const d = await presignRes.json().catch(() => ({}));
-        throw new Error(d.error || `Ошибка ${presignRes.status}`);
-      }
-      const { upload_url, cdn_url } = await presignRes.json();
-      const cdnUrl = await new Promise<string>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("PUT", upload_url);
-        xhr.setRequestHeader("Content-Type", mime);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 98));
-        };
-        xhr.onload = () => {
-          if (xhr.status < 300) resolve(cdn_url);
-          else reject(new Error(`Ошибка загрузки: ${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error("Ошибка сети"));
-        xhr.send(file);
-      });
-      setProgress(100);
+      const cdnUrl = await uploadVideo(file, VIDEO_UPLOAD_URL, getAdminToken(), (pct) => setProgress(pct));
       onChange(cdnUrl);
       setLinkInput("");
     } catch (e: unknown) {

@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import VideoGuide from "@/components/admin/VideoGuide";
+import { uploadVideo } from "@/lib/uploadVideo";
 import func2url from "../../../backend/func2url.json";
 
 const UPLOAD_URL = "https://functions.poehali.dev/b53b7edb-1a17-424c-8ad3-25cc3b256dd0";
@@ -137,31 +138,7 @@ export default function MediaUpload({ value, onChange }: Props) {
 
     if (type === "video") {
       try {
-        const mime = file.type || "video/mp4";
-        const token = getAdminToken();
-        const presignRes = await fetch(
-          `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`
-        );
-        if (!presignRes.ok) {
-          const d = await presignRes.json().catch(() => ({}));
-          throw new Error(d.error || `Ошибка ${presignRes.status}`);
-        }
-        const { upload_url, cdn_url } = await presignRes.json();
-        const cdnUrl = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", upload_url);
-          xhr.setRequestHeader("Content-Type", mime);
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setVideoProgress(Math.round((e.loaded / e.total) * 98));
-          };
-          xhr.onload = () => {
-            if (xhr.status < 300) resolve(cdn_url);
-            else reject(new Error(`Ошибка загрузки: ${xhr.status}`));
-          };
-          xhr.onerror = () => reject(new Error("Ошибка сети"));
-          xhr.send(file);
-        });
-        setVideoProgress(100);
+        const cdnUrl = await uploadVideo(file, VIDEO_UPLOAD_URL, getAdminToken(), (pct) => setVideoProgress(pct));
         addItem({ type: "video", url: cdnUrl });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Ошибка загрузки");

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/context/AuthContext";
 import VideoGuide from "@/components/admin/VideoGuide";
+import { uploadVideo } from "@/lib/uploadVideo";
 import func2url from "../../../backend/func2url.json";
 
 const CHAT_URL = (func2url as Record<string, string>).chat;
@@ -201,31 +202,7 @@ export default function VideoSection() {
       let finalVideoUrl = "";
 
       if (videoFile) {
-        setUploadProgress(5);
-        const mime = videoFile.type || "video/mp4";
-        const presignRes = await fetch(
-          `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(videoFile.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token!)}`
-        );
-        if (!presignRes.ok) {
-          const d = await presignRes.json().catch(() => ({}));
-          throw new Error(d.error || `Ошибка ${presignRes.status}`);
-        }
-        const { upload_url, cdn_url } = await presignRes.json();
-        finalVideoUrl = await new Promise<string>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("PUT", upload_url);
-          xhr.setRequestHeader("Content-Type", mime);
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress(5 + Math.round((e.loaded / e.total) * 90));
-          };
-          xhr.onload = () => {
-            if (xhr.status < 300) resolve(cdn_url);
-            else reject(new Error(`Ошибка загрузки: ${xhr.status}`));
-          };
-          xhr.onerror = () => reject(new Error("Ошибка сети"));
-          xhr.send(videoFile);
-        });
-        setUploadProgress(95);
+        finalVideoUrl = await uploadVideo(videoFile, VIDEO_UPLOAD_URL, token!, (pct) => setUploadProgress(pct));
       } else {
         finalVideoUrl = linkInput.trim();
         setUploadProgress(80);

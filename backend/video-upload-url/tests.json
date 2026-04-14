@@ -7,9 +7,17 @@
       "expectedStatus": 200
     },
     {
-      "name": "POST без токена — 403",
+      "name": "init без токена — 403",
       "method": "POST",
-      "path": "/?filename=test.mp4&mime=video/mp4",
+      "path": "/?action=init&filename=test.mp4&mime=video/mp4",
+      "expectedStatus": 403,
+      "expectedBody": {"error": "Нет прав"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "неизвестный action без токена — 403",
+      "method": "POST",
+      "path": "/?action=unknown",
       "expectedStatus": 403,
       "expectedBody": {"error": "Нет прав"},
       "bodyMatcher": "partial"

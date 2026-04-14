@@ -1,14 +1,16 @@
 """
-Загрузка видео в S3.
-GET  /?action=presign&filename=video.mp4&mime=video/mp4&token=...
-     → { upload_url, cdn_url, key }  — presigned PUT URL, браузер льёт напрямую в S3
-POST / (legacy, малые файлы)
-     → { url, cdn_url }
-Требует X-Auth-Token (club owner/admin) или token= в query.
+Chunked multipart upload видео в S3.
+Шаг 1: POST ?action=init&filename=video.mp4&mime=video/mp4&token=...
+        → { upload_id, key }
+Шаг 2: POST ?action=chunk&key=...&upload_id=...&part=1&token=...  body=<binary chunk>
+        → { etag, part }
+Шаг 3: POST ?action=complete&key=...&upload_id=...&token=...  body=JSON [{part,etag}...]
+        → { cdn_url }
+Abort:  POST ?action=abort&key=...&upload_id=...&token=...
+Требует token= в query (club owner/admin или admin_sessions).
 """
 import json
 import os
-import uuid
 import base64
 import psycopg2
 import boto3
@@ -21,7 +23,6 @@ CORS = {
 }
 
 VIDEO_EXTS = {"mp4", "webm", "mov", "avi", "mkv"}
-
 MIME_MAP = {
     "mp4": "video/mp4",
     "webm": "video/webm",
@@ -80,64 +81,75 @@ def handler(event: dict, context) -> dict:
     qs = event.get("queryStringParameters") or {}
 
     token = qs.get("token") or headers.get("X-Auth-Token", "") or headers.get("X-Admin-Token", "")
-
     if not check_token(token.strip()):
         return err("Нет прав", 403)
 
-    # === GET ?action=presign — возвращает presigned PUT URL ===
-    if event.get("httpMethod") == "GET" or qs.get("action") == "presign":
+    action = qs.get("action", "")
+    s3 = make_s3()
+
+    # === Шаг 1: инициализация multipart upload ===
+    if action == "init":
         filename = (qs.get("filename") or "video.mp4").strip()
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
         if ext not in VIDEO_EXTS:
             return err(f"Недопустимый формат. Разрешены: {', '.join(sorted(VIDEO_EXTS)).upper()}")
-
         mime = qs.get("mime") or MIME_MAP.get(ext, "video/mp4")
+        import uuid
         key = f"videos/{uuid.uuid4().hex}.{ext}"
+        resp = s3.create_multipart_upload(Bucket="files", Key=key, ContentType=mime)
+        return ok({"upload_id": resp["UploadId"], "key": key})
 
-        s3 = make_s3()
-        upload_url = s3.generate_presigned_url(
-            "put_object",
-            Params={"Bucket": "files", "Key": key, "ContentType": mime},
-            ExpiresIn=3600,
+    # === Шаг 2: загрузка чанка ===
+    if action == "chunk":
+        key = qs.get("key", "")
+        upload_id = qs.get("upload_id", "")
+        part_number = int(qs.get("part", "1"))
+        if not key or not upload_id:
+            return err("key и upload_id обязательны")
+
+        body_raw = event.get("body") or ""
+        if event.get("isBase64Encoded"):
+            chunk_data = base64.b64decode(body_raw)
+        else:
+            chunk_data = body_raw.encode("latin-1") if isinstance(body_raw, str) else body_raw
+
+        resp = s3.upload_part(
+            Bucket="files",
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=part_number,
+            Body=chunk_data,
         )
-        cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
-        return ok({"upload_url": upload_url, "cdn_url": cdn_url, "key": key})
+        return ok({"etag": resp["ETag"], "part": part_number})
 
-    # === POST — legacy малые файлы ===
-    body_raw = event.get("body") or ""
-    content_type = headers.get("Content-Type", "")
+    # === Шаг 3: завершение multipart upload ===
+    if action == "complete":
+        key = qs.get("key", "")
+        upload_id = qs.get("upload_id", "")
+        if not key or not upload_id:
+            return err("key и upload_id обязательны")
 
-    if "application/json" in content_type:
+        body_raw = event.get("body") or "[]"
         try:
-            body_json = json.loads(body_raw)
+            parts = json.loads(body_raw)
         except Exception:
             return err("Невалидный JSON")
 
-        filename = (body_json.get("filename") or "video.mp4").strip()
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
-        if ext not in VIDEO_EXTS:
-            return err(f"Недопустимый формат. Разрешены: {', '.join(sorted(VIDEO_EXTS)).upper()}")
+        s3.complete_multipart_upload(
+            Bucket="files",
+            Key=key,
+            UploadId=upload_id,
+            MultipartUpload={"Parts": [{"PartNumber": p["part"], "ETag": p["etag"]} for p in parts]},
+        )
+        cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+        return ok({"cdn_url": cdn_url, "url": cdn_url})
 
-        mime = body_json.get("mime") or MIME_MAP.get(ext, "video/mp4")
-        file_b64 = body_json.get("file_b64") or body_json.get("file") or ""
-        if not file_b64:
-            return err("file_b64 обязателен")
-        if "," in file_b64:
-            file_b64 = file_b64.split(",", 1)[1]
-        file_data = base64.b64decode(file_b64)
-    else:
-        filename = (qs.get("filename") or "video.mp4").strip()
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
-        if ext not in VIDEO_EXTS:
-            return err(f"Недопустимый формат. Разрешены: {', '.join(sorted(VIDEO_EXTS)).upper()}")
-        mime = qs.get("mime") or MIME_MAP.get(ext, "video/mp4")
-        if event.get("isBase64Encoded"):
-            file_data = base64.b64decode(body_raw)
-        else:
-            file_data = body_raw.encode("latin-1") if isinstance(body_raw, str) else body_raw
+    # === Отмена upload ===
+    if action == "abort":
+        key = qs.get("key", "")
+        upload_id = qs.get("upload_id", "")
+        if key and upload_id:
+            s3.abort_multipart_upload(Bucket="files", Key=key, UploadId=upload_id)
+        return ok({"aborted": True})
 
-    key = f"videos/{uuid.uuid4().hex}.{ext}"
-    s3 = make_s3()
-    s3.put_object(Bucket="files", Key=key, Body=file_data, ContentType=mime)
-    cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
-    return ok({"url": cdn_url, "cdn_url": cdn_url})
+    return err("Неизвестный action. Используй: init, chunk, complete, abort")
