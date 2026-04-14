@@ -36,26 +36,20 @@ const empty = (): Omit<Item, "id"> => ({
 });
 
 function VideoUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
-  const [mode, setMode] = useState<"link" | "file">(value && !value.startsWith("blob") ? "link" : "link");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
-  const [sizeWarning, setSizeWarning] = useState("");
+  const [linkInput, setLinkInput] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uploadFile = async (file: File) => {
-    setSizeWarning("");
-    if (file.size > 100 * 1024 * 1024) {
-      setSizeWarning(`Большой файл (${Math.round(file.size / 1024 / 1024)} МБ) — загрузка займёт несколько минут`);
-    }
     setUploading(true);
     setError("");
     setProgress(0);
     try {
       const token = getAdminToken();
       const mime = file.type || "video/mp4";
-
-      // Шаг 1: получаем presigned URL от backend
       const presignRes = await fetch(
         `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`
       );
@@ -64,8 +58,6 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
         throw new Error(d.error || `Ошибка ${presignRes.status}`);
       }
       const { upload_url, cdn_url } = await presignRes.json();
-
-      // Шаг 2: браузер льёт файл напрямую в S3 (минуя функцию — нет лимита 413)
       const cdnUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", upload_url);
@@ -75,14 +67,14 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
         };
         xhr.onload = () => {
           if (xhr.status < 300) resolve(cdn_url);
-          else reject(new Error(`Ошибка загрузки в хранилище: ${xhr.status}`));
+          else reject(new Error(`Ошибка загрузки: ${xhr.status}`));
         };
-        xhr.onerror = () => reject(new Error("Ошибка сети — попробуй ссылку на YouTube/VK"));
+        xhr.onerror = () => reject(new Error("Ошибка сети"));
         xhr.send(file);
       });
-
       setProgress(100);
       onChange(cdnUrl);
+      setLinkInput("");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally {
@@ -91,60 +83,63 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
     }
   };
 
+  const applyLink = () => {
+    const url = linkInput.trim();
+    if (url) { onChange(url); setLinkInput(""); }
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-1 p-1 bg-white/5 rounded-xl w-fit">
-        {(["link", "file"] as const).map(m => (
-          <button key={m} type="button" onClick={() => setMode(m)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${mode === m ? "bg-white/10 text-white" : "text-white/40 hover:text-white"}`}>
-            {m === "link" ? "По ссылке" : "С компьютера"}
-          </button>
-        ))}
+      {/* Зона загрузки файла */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
+        onClick={() => !uploading && fileRef.current?.click()}
+        className={`w-full border-2 border-dashed rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer transition-all text-center ${
+          isDragging ? "border-[#38BDF8]/50 bg-[#38BDF8]/5" : "border-white/15 hover:border-[#38BDF8]/30"
+        } ${uploading ? "cursor-default pointer-events-none" : ""}`}
+      >
+        <input ref={fileRef} type="file"
+          accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.avi,.mkv"
+          className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }}
+        />
+        {uploading ? (
+          <div className="w-full flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-sm text-white/60 justify-center">
+              <Icon name="Loader2" size={14} className="animate-spin" />
+              Загружаю... {progress}%
+            </div>
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-full bg-[#38BDF8] transition-all duration-300 rounded-full" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <Icon name="Upload" size={22} className="text-white/25" />
+            <div className="text-sm text-white/40">Перетащи или нажми — видеофайл</div>
+            <div className="text-xs text-white/20">MP4, MOV, MKV, WebM — любой размер</div>
+          </>
+        )}
       </div>
 
-      {mode === "link" ? (
+      {/* Ссылка */}
+      <div className="flex gap-2">
         <input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder="https://youtube.com/... или VK Video, Rutube, прямая ссылка на .mp4"
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#38BDF8]/50 transition-colors"
+          value={linkInput}
+          onChange={e => setLinkInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && applyLink()}
+          placeholder="Или вставь ссылку — YouTube, VK, Rutube, .mp4..."
+          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/25 transition-colors"
         />
-      ) : (
-        <div>
-          <input ref={fileRef} type="file"
-            accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.avi,.mkv"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ""; }}
-          />
-          {uploading ? (
-            <div className="w-full border border-white/10 rounded-xl p-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-sm text-white/60">
-                <Icon name="Loader2" size={14} className="animate-spin" />
-                Загружаю видео... {progress}%
-              </div>
-              <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div className="h-full bg-[#38BDF8] transition-all duration-300 rounded-full" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-          ) : (
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-white/15 hover:border-[#38BDF8]/40 rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer transition-all text-center">
-              <Icon name="Upload" size={22} className="text-white/25" />
-              <div className="text-sm text-white/40">Кликни или перетащи видеофайл сюда</div>
-              <div className="text-xs text-white/20">MP4, MOV, MKV, WebM — любой размер</div>
-            </div>
-          )}
-        </div>
-      )}
+        <button type="button" onClick={applyLink} disabled={!linkInput.trim()}
+          className="px-3 py-2 rounded-xl bg-white/8 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/12 transition-all disabled:opacity-30">
+          <Icon name="Plus" size={14} />
+        </button>
+      </div>
 
       <VideoGuide />
-
-      {sizeWarning && (
-        <div className="text-xs text-yellow-400 flex items-center gap-1">
-          <Icon name="AlertTriangle" size={12} /> {sizeWarning}
-        </div>
-      )}
 
       {error && (
         <div className="text-xs text-red-400 flex items-center gap-1">
@@ -161,15 +156,6 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
           </button>
         </div>
       )}
-
-      <div className="flex items-start gap-2 px-3 py-2.5 bg-white/3 border border-white/8 rounded-xl">
-        <Icon name="Lightbulb" size={13} className="text-yellow-400/70 shrink-0 mt-0.5" />
-        <div className="text-xs text-white/35 leading-relaxed">
-          Для видео больше 100 МБ рекомендуем загрузить на{" "}
-          <span className="text-white/55">YouTube</span> или{" "}
-          <span className="text-white/55">VK Video</span> и вставить ссылку — так видео загрузится быстрее и будет воспроизводиться без задержек
-        </div>
-      </div>
     </div>
   );
 }

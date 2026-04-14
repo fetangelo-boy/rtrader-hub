@@ -8,7 +8,6 @@ const CHAT_URL = (func2url as Record<string, string>).chat;
 const VIDEO_UPLOAD_URL = (func2url as Record<string, string>)["video-upload-url"];
 const POLL_INTERVAL = 30000;
 
-type UploadMode = "file" | "link";
 
 interface VideoMessage {
   id: number;
@@ -136,11 +135,11 @@ export default function VideoSection() {
   const [uploadError, setUploadError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [uploadMode, setUploadMode] = useState<UploadMode>("link");
   const [titleInput, setTitleInput] = useState("");
   const [descInput, setDescInput] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [linkInput, setLinkInput] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = user?.role === "owner" || user?.role === "admin";
@@ -174,7 +173,6 @@ export default function VideoSection() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 200 * 1024 * 1024) { setUploadError("Максимальный размер файла — 200 МБ"); return; }
     setVideoFile(f);
     setUploadError("");
     if (!titleInput) setTitleInput(f.name.replace(/\.[^.]+$/, ""));
@@ -194,6 +192,7 @@ export default function VideoSection() {
   const handlePublish = async () => {
     if (!token) return;
     if (!titleInput.trim()) { setUploadError("Введите название видео"); return; }
+    if (!videoFile && !linkInput.trim()) { setUploadError("Выберите файл или вставьте ссылку"); return; }
 
     setUploading(true);
     setUploadError("");
@@ -201,17 +200,9 @@ export default function VideoSection() {
     try {
       let finalVideoUrl = "";
 
-      if (uploadMode === "link") {
-        const trimmed = linkInput.trim();
-        if (!trimmed) { setUploadError("Вставьте ссылку на видео"); setUploading(false); return; }
-        finalVideoUrl = trimmed;
-        setUploadProgress(80);
-      } else {
-        if (!videoFile) { setUploadError("Выберите файл"); setUploading(false); return; }
+      if (videoFile) {
         setUploadProgress(5);
-
         const mime = videoFile.type || "video/mp4";
-
         const presignRes = await fetch(
           `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(videoFile.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token!)}`
         );
@@ -220,7 +211,6 @@ export default function VideoSection() {
           throw new Error(d.error || `Ошибка ${presignRes.status}`);
         }
         const { upload_url, cdn_url } = await presignRes.json();
-
         finalVideoUrl = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("PUT", upload_url);
@@ -230,12 +220,15 @@ export default function VideoSection() {
           };
           xhr.onload = () => {
             if (xhr.status < 300) resolve(cdn_url);
-            else reject(new Error(`Ошибка загрузки в хранилище: ${xhr.status}`));
+            else reject(new Error(`Ошибка загрузки: ${xhr.status}`));
           };
           xhr.onerror = () => reject(new Error("Ошибка сети"));
           xhr.send(videoFile);
         });
         setUploadProgress(95);
+      } else {
+        finalVideoUrl = linkInput.trim();
+        setUploadProgress(80);
       }
 
       const sendRes = await fetch(`${CHAT_URL}?action=send`, {
@@ -295,23 +288,6 @@ export default function VideoSection() {
       {/* Форма добавления */}
       {isAdmin && showUploadForm && (
         <div className="border-b border-border bg-card/60 p-4 space-y-3 flex-shrink-0">
-          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-fit">
-            <button
-              onClick={() => setUploadMode("link")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${uploadMode === "link" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Icon name="Link" size={12} />
-              Ссылка
-            </button>
-            <button
-              onClick={() => setUploadMode("file")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-colors ${uploadMode === "file" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              <Icon name="Upload" size={12} />
-              Файл
-            </button>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="text"
@@ -329,46 +305,55 @@ export default function VideoSection() {
             />
           </div>
 
-          {uploadMode === "link" ? (
-            <div className="space-y-1.5">
-              <input
-                type="url"
-                placeholder="Ссылка на YouTube, Rutube, VK Видео, Vimeo, Telegram..."
-                value={linkInput}
-                onChange={e => setLinkInput(e.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Поддерживаются: YouTube, Rutube, VK Видео, Vimeo, Telegram · Для Telegram видео откроется по ссылке
-              </p>
-            </div>
-          ) : (
-            <div
-              onClick={() => fileRef.current?.click()}
-              className={`flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
-                videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
-              }`}
-            >
-              <Icon name={videoFile ? "CheckCircle" : "Film"} size={22} className={videoFile ? "text-primary" : "text-muted-foreground"} />
-              <span className="text-xs text-muted-foreground text-center">
-                {videoFile ? videoFile.name : "Нажмите или перетащите видео (MP4, WebM, MKV, MOV — любой размер)"}
-              </span>
-              <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" className="hidden" onChange={handleFileChange} />
-            </div>
-          )}
+          {/* Зона загрузки файла */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) { setVideoFile(f); setLinkInput(""); if (!titleInput) setTitleInput(f.name.replace(/\.[^.]+$/, "")); } }}
+            onClick={() => !uploading && fileRef.current?.click()}
+            className={`flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+              isDragging ? "border-primary bg-primary/5" :
+              videoFile ? "border-primary bg-primary/5" :
+              "border-border hover:border-primary/50 hover:bg-muted/30"
+            } ${uploading ? "pointer-events-none" : ""}`}
+          >
+            <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" className="hidden" onChange={handleFileChange} />
+            {uploading && videoFile ? (
+              <div className="w-full flex flex-col gap-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Загрузка...</span><span>{uploadProgress}%</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <Icon name={videoFile ? "CheckCircle" : "Film"} size={22} className={videoFile ? "text-primary" : "text-muted-foreground"} />
+                <span className="text-xs text-muted-foreground text-center">
+                  {videoFile ? videoFile.name : "Нажмите или перетащите видеофайл сюда (MP4, WebM, MKV, MOV)"}
+                </span>
+                {videoFile && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setVideoFile(null); }}
+                    className="text-xs text-muted-foreground hover:text-destructive transition-colors">
+                    Удалить
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Ссылка */}
+          <input
+            type="url"
+            placeholder="Или вставь ссылку — YouTube, Rutube, VK Видео, Vimeo, Telegram..."
+            value={linkInput}
+            onChange={e => { setLinkInput(e.target.value); if (e.target.value) setVideoFile(null); }}
+            disabled={!!videoFile}
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-40"
+          />
 
           <VideoGuide />
-
-          {uploading && uploadMode === "file" && (
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Загрузка...</span><span>{uploadProgress}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-              </div>
-            </div>
-          )}
 
           {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
 
