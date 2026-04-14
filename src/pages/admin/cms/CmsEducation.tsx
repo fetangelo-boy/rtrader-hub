@@ -39,20 +39,36 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
+  const [sizeWarning, setSizeWarning] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uploadFile = async (file: File) => {
+    setSizeWarning("");
+    if (file.size > 500 * 1024 * 1024) {
+      setError("Файл слишком большой (макс. 500 МБ). Лучше загрузи на YouTube/VK и вставь ссылку");
+      return;
+    }
+    if (file.size > 80 * 1024 * 1024) {
+      setSizeWarning(`Большой файл (${Math.round(file.size / 1024 / 1024)} МБ) — загрузка займёт несколько минут`);
+    }
     setUploading(true);
     setError("");
     setProgress(0);
     try {
-      const mime = file.type || "video/mp4";
-      const url = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}`;
       const token = getAdminToken();
+      // Конвертируем в base64 и шлём как JSON — обходит CORS preflight по Content-Type
+      const base64 = await new Promise<string>((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = (e) => res((e.target?.result as string) || "");
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+      const mime = file.type || "video/mp4";
       const cdnUrl = await new Promise<string>((resolve, reject) => {
+        const url = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}`;
         const xhr = new XMLHttpRequest();
         xhr.open("POST", url);
-        xhr.setRequestHeader("Content-Type", mime);
+        xhr.setRequestHeader("Content-Type", "application/json");
         xhr.setRequestHeader("X-Auth-Token", token);
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 95));
@@ -69,8 +85,8 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
             catch { reject(new Error(`Ошибка ${xhr.status}`)); }
           }
         };
-        xhr.onerror = () => reject(new Error("Ошибка сети"));
-        xhr.send(file);
+        xhr.onerror = () => reject(new Error(`Ошибка сети (${xhr.status})`));
+        xhr.send(JSON.stringify({ filename: file.name, mime, file_b64: base64 }));
       });
       setProgress(100);
       onChange(cdnUrl);
@@ -126,6 +142,12 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
               <div className="text-xs text-white/20">MP4, MOV, MKV, WebM — любой размер</div>
             </div>
           )}
+        </div>
+      )}
+
+      {sizeWarning && (
+        <div className="text-xs text-yellow-400 flex items-center gap-1">
+          <Icon name="AlertTriangle" size={12} /> {sizeWarning}
         </div>
       )}
 
