@@ -327,10 +327,10 @@ def handler(event: dict, context) -> dict:
             query = """
                 SELECT u.id, u.email, u.nickname, u.is_blocked, u.role,
                        s.id as sub_id, s.plan, s.status, s.expires_at, s.created_at,
-                       u.telegram_id, u.telegram_username
+                       u.telegram_id, u.telegram_username, s.receipt_url
                 FROM club_users u
                 LEFT JOIN LATERAL (
-                    SELECT id, plan, status, expires_at, created_at
+                    SELECT id, plan, status, expires_at, created_at, receipt_url
                     FROM club_subscriptions
                     WHERE user_id = u.id
                     ORDER BY created_at DESC LIMIT 1
@@ -420,6 +420,7 @@ def handler(event: dict, context) -> dict:
                 "expires_at": exp.isoformat() if exp else None,
                 "created_at": r[9].isoformat() if r[9] else None,
                 "telegram_id": r[10], "telegram_username": r[11],
+                "receipt_url": r[12],
             })
         return ok({"subscribers": result})
 

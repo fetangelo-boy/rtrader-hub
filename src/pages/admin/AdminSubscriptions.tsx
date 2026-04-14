@@ -26,6 +26,7 @@ interface Subscriber {
   sub_id: number | null; plan: string | null; status: string;
   expires_at: string | null; created_at: string | null;
   telegram_id: number | null; telegram_username: string | null;
+  receipt_url: string | null;
 }
 
 interface HistoryEntry {
@@ -330,6 +331,21 @@ export default function AdminSubscriptions() {
                     )}
                   </div>
                 </div>
+
+                {/* Чек для pending */}
+                {sub.status === "pending" && sub.receipt_url && (
+                  <a
+                    href={sub.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Открыть чек об оплате"
+                    onClick={e => e.stopPropagation()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-400 text-xs font-semibold hover:bg-sky-500/25 transition-all flex-shrink-0"
+                  >
+                    <Icon name="Receipt" size={13} />
+                    Чек
+                  </a>
+                )}
 
                 {/* Действия */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
