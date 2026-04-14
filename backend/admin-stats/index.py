@@ -258,4 +258,157 @@ def handler(event: dict, context) -> dict:
             "body": csv_body,
         }
 
+    # === Аудитория — детальная разбивка пользователей ===
+    if action == "audience":
+        with conn.cursor() as cur:
+            # Всего зарегистрировались
+            cur.execute("SELECT COUNT(*) FROM club_users WHERE role NOT IN ('owner','admin')")
+            total = cur.fetchone()[0]
+
+            # Активные клиенты (подписка активна сейчас)
+            cur.execute("""
+                SELECT COUNT(DISTINCT u.id) FROM club_users u
+                JOIN club_subscriptions s ON s.user_id = u.id
+                WHERE s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
+                  AND u.role NOT IN ('owner','admin')
+            """)
+            active_clients = cur.fetchone()[0]
+
+            # Купили впервые (ровно 1 оплата)
+            cur.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT user_id FROM club_subscriptions
+                    WHERE status IN ('active','expired')
+                    GROUP BY user_id HAVING COUNT(*) = 1
+                ) t
+            """)
+            first_time = cur.fetchone()[0]
+
+            # Купили повторно (2+ оплаты)
+            cur.execute("""
+                SELECT COUNT(*) FROM (
+                    SELECT user_id FROM club_subscriptions
+                    WHERE status IN ('active','expired')
+                    GROUP BY user_id HAVING COUNT(*) >= 2
+                ) t
+            """)
+            repeat = cur.fetchone()[0]
+
+            # Не продлили (была подписка, истекла, нет активной)
+            cur.execute("""
+                SELECT COUNT(DISTINCT user_id) FROM club_subscriptions
+                WHERE status = 'expired'
+                  AND user_id NOT IN (
+                    SELECT user_id FROM club_subscriptions
+                    WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
+                  )
+            """)
+            not_renewed = cur.fetchone()[0]
+
+            # Зарегистрировались, но никогда не покупали
+            cur.execute("""
+                SELECT COUNT(*) FROM club_users u
+                WHERE u.role NOT IN ('owner','admin')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM club_subscriptions s
+                    WHERE s.user_id = u.id AND s.status IN ('active','expired','pending')
+                  )
+            """)
+            never_bought = cur.fetchone()[0]
+
+            # Продажи: уникальных клиентов и всего оплат
+            cur.execute("""
+                SELECT COUNT(DISTINCT user_id), COUNT(*)
+                FROM club_subscriptions
+                WHERE status IN ('active','expired')
+            """)
+            r = cur.fetchone()
+            sales_clients, sales_total = r[0], r[1]
+
+        return ok({
+            "total": total,
+            "active_clients": active_clients,
+            "first_time": first_time,
+            "repeat": repeat,
+            "not_renewed": not_renewed,
+            "never_bought": never_bought,
+            "sales_clients": sales_clients,
+            "sales_total": sales_total,
+        })
+
+    # === Посетители — онлайн и по периоду ===
+    if action == "visitors":
+        days = min(int(qs.get("days", 30)), 365)
+        with conn.cursor() as cur:
+            # Онлайн прямо сейчас (сессии за последние 5 минут)
+            cur.execute("""
+                SELECT COUNT(DISTINCT session_id) FROM page_views
+                WHERE created_at > NOW() - INTERVAL '5 minutes'
+            """)
+            online_now = cur.fetchone()[0]
+
+            # Уникальных посетителей за период
+            cur.execute("""
+                SELECT COUNT(DISTINCT session_id) FROM page_views
+                WHERE created_at > NOW() - INTERVAL '%s days'
+            """ % days)
+            unique = cur.fetchone()[0]
+
+            # Всего просмотров за период
+            cur.execute("""
+                SELECT COUNT(*) FROM page_views
+                WHERE created_at > NOW() - INTERVAL '%s days'
+            """ % days)
+            total_views = cur.fetchone()[0]
+
+            # По дням за период
+            cur.execute("""
+                SELECT DATE(created_at), COUNT(DISTINCT session_id)
+                FROM page_views
+                WHERE created_at > NOW() - INTERVAL '%s days'
+                GROUP BY DATE(created_at)
+                ORDER BY DATE(created_at) ASC
+            """ % days)
+            by_day = [{"date": str(r[0]), "visitors": r[1]} for r in cur.fetchall()]
+
+            # Топ страниц
+            cur.execute("""
+                SELECT path, COUNT(DISTINCT session_id) as visitors
+                FROM page_views
+                WHERE created_at > NOW() - INTERVAL '%s days'
+                GROUP BY path
+                ORDER BY visitors DESC
+                LIMIT 10
+            """ % days)
+            top_pages = [{"path": r[0], "visitors": r[1]} for r in cur.fetchall()]
+
+        return ok({
+            "online_now": online_now,
+            "unique_visitors": unique,
+            "total_views": total_views,
+            "by_day": by_day,
+            "top_pages": top_pages,
+            "days": days,
+        })
+
+    # === Трек посещения (вызывается с фронта) ===
+    if action == "track":
+        if event.get("httpMethod") != "POST":
+            return err("Только POST", 405)
+        try:
+            body = json.loads(event.get("body") or "{}")
+        except Exception:
+            return err("Невалидный JSON")
+        session_id = (body.get("session_id") or "").strip()[:64]
+        path = (body.get("path") or "/").strip()[:255]
+        user_id = body.get("user_id")
+        if not session_id:
+            return err("session_id обязателен")
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO page_views (session_id, path, user_id) VALUES (%s, %s, %s)
+            """, (session_id, path, user_id if isinstance(user_id, int) else None))
+            conn.commit()
+        return ok({"ok": True})
+
     return err("Неизвестное действие", 400)

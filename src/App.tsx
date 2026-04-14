@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { usePageView } from "@/hooks/usePageView";
 
 import Index from "./pages/Index";
 import Analytics from "./pages/Analytics";
@@ -72,6 +73,8 @@ function AuthedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const { user } = useAuth();
+  usePageView(user?.id ?? null);
   return (
     <Routes>
       {/* Портал — публичный */}

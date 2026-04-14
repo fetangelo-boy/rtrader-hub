@@ -93,6 +93,8 @@ export default function AdminStats() {
     }
   };
 
+  const [visitorDays, setVisitorDays] = useState(7);
+
   const { data: overview } = useQuery({
     queryKey: ["admin-stats-overview"],
     queryFn: () => fetchStats("overview"),
@@ -116,7 +118,21 @@ export default function AdminStats() {
     refetchInterval: showPending ? 30_000 : false,
   });
 
+  const { data: audience } = useQuery({
+    queryKey: ["admin-stats-audience"],
+    queryFn: () => fetchStats("audience"),
+    refetchInterval: 120_000,
+  });
+
+  const { data: visitors } = useQuery({
+    queryKey: ["admin-stats-visitors", visitorDays],
+    queryFn: () => fetchStats("visitors", `&days=${visitorDays}`),
+    refetchInterval: 30_000,
+  });
+
   const o = overview || {};
+  const a = audience || {};
+  const v = visitors || {};
 
   return (
     <div className="p-6 max-w-5xl">
@@ -266,6 +282,91 @@ export default function AdminStats() {
           )}
         </div>
       )}
+
+      {/* Посетители сайта */}
+      <div className="glass-card p-5 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-russo text-base text-white flex items-center gap-2">
+            <Icon name="Activity" size={15} className="text-neon-cyan" />
+            Посетители сайта
+          </h2>
+          <div className="flex gap-1">
+            {[1, 7, 30].map(d => (
+              <button key={d} onClick={() => setVisitorDays(d)}
+                className={cn("px-3 py-1 rounded-lg text-xs transition-all", visitorDays === d ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30" : "text-white/30 hover:text-white/60")}>
+                {d === 1 ? "Сегодня" : d === 7 ? "7 дней" : "30 дней"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs text-white/40">Онлайн сейчас</span>
+            </div>
+            <div className="text-2xl font-russo text-green-400">{v.online_now ?? "—"}</div>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+            <div className="text-xs text-white/40">Уникальных за период</div>
+            <div className="text-2xl font-russo text-neon-cyan">{v.unique_visitors ?? "—"}</div>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+            <div className="text-xs text-white/40">Просмотров страниц</div>
+            <div className="text-2xl font-russo text-white/70">{v.total_views ?? "—"}</div>
+          </div>
+        </div>
+        {v.top_pages?.length > 0 && (
+          <div>
+            <div className="text-xs text-white/30 mb-2 uppercase tracking-wider">Топ страниц</div>
+            <div className="space-y-1">
+              {v.top_pages.map((p: { path: string; visitors: number }) => (
+                <div key={p.path} className="flex items-center gap-2">
+                  <div className="text-xs text-white/50 w-40 truncate">{p.path}</div>
+                  <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-neon-cyan/50 rounded-full"
+                      style={{ width: `${Math.min(100, (p.visitors / (v.top_pages[0]?.visitors || 1)) * 100)}%` }} />
+                  </div>
+                  <div className="text-xs text-white/40 w-10 text-right">{p.visitors}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Аудитория */}
+      <div className="glass-card p-5 mb-6">
+        <h2 className="font-russo text-base text-white mb-4 flex items-center gap-2">
+          <Icon name="PieChart" size={15} className="text-neon-yellow" />
+          Аудитория
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[
+            { label: "Всего зарегистрировались", value: a.total, color: "text-white/70" },
+            { label: "Активные клиенты", value: a.active_clients, color: "text-green-400" },
+            { label: "Купили впервые", value: a.first_time, color: "text-neon-cyan" },
+            { label: "Купили повторно", value: a.repeat, color: "text-neon-yellow" },
+            { label: "Не продлили", value: a.not_renewed, color: "text-orange-400" },
+            { label: "Ни разу не покупали", value: a.never_bought, color: "text-white/40" },
+          ].map(item => (
+            <div key={item.label} className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+              <div className="text-xs text-white/40 leading-tight">{item.label}</div>
+              <div className={cn("text-2xl font-russo", item.color)}>{item.value ?? "—"}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-white/8 grid grid-cols-2 gap-3">
+          <div className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+            <div className="text-xs text-white/40">Уникальных клиентов (все время)</div>
+            <div className="text-2xl font-russo text-neon-yellow">{a.sales_clients ?? "—"}</div>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3 flex flex-col gap-1">
+            <div className="text-xs text-white/40">Всего оплат (все время)</div>
+            <div className="text-2xl font-russo text-neon-yellow">{a.sales_total ?? "—"}</div>
+          </div>
+        </div>
+      </div>
 
       {/* Выручка по периоду */}
       <div className="glass-card p-5 mb-6">
