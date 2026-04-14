@@ -43,10 +43,13 @@ function Spinner() {
 }
 
 function ClubRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, hasAccess, subLoading } = useAuth();
+  const { user, loading, hasAccess, subLoading, subscription } = useAuth();
   if (loading || subLoading) return <Spinner />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!hasAccess) return <NoAccess />;
+  // Если подписка на рассмотрении — показываем NoAccess с сообщением об ожидании
+  if (!hasAccess && subscription?.status === "pending") return <NoAccess />;
+  // Если нет подписки вообще — отправляем на страницу оплаты
+  if (!hasAccess) return <Navigate to="/subscribe" replace />;
   return <>{children}</>;
 }
 
