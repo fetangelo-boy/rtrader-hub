@@ -74,11 +74,14 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     headers = {k: v for k, v in (event.get("headers") or {}).items()}
+    qs = event.get("queryStringParameters") or {}
+
+    # Токен можно передать через query-параметр (для бинарной загрузки без кастомных заголовков)
+    if qs.get("token"):
+        headers["X-Auth-Token"] = qs["token"]
 
     if not check_token(headers):
         return err("Нет прав", 403)
-
-    qs = event.get("queryStringParameters") or {}
     body_raw = event.get("body") or ""
 
     # Поддержка JSON-режима { "filename": "...", "mime": "...", "file_b64": "..." }
