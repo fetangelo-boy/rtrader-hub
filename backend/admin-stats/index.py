@@ -17,9 +17,6 @@ CORS = {
 
 PLAN_PRICE = {"week": 990, "month": 2490, "quarter": 5990, "halfyear": 9990, "loyal": 1990}
 
-SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "public")
-PV = f"{SCHEMA}.page_views"  # полное имя таблицы с явной схемой
-
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
@@ -61,7 +58,7 @@ def handler(event: dict, context) -> dict:
             return err("session_id обязателен")
         conn2 = get_conn()
         with conn2.cursor() as cur:
-            cur.execute(f"INSERT INTO {PV} (session_id, path, user_id) VALUES (%s, %s, %s)",
+            cur.execute("INSERT INTO page_views (session_id, path, user_id) VALUES (%s, %s, %s)",
                         (session_id, path, user_id if isinstance(user_id, int) else None))
         conn2.commit()
         conn2.close()
@@ -362,18 +359,18 @@ def handler(event: dict, context) -> dict:
     if action == "visitors":
         days = min(int(qs.get("days", 30)), 365)
         with conn.cursor() as cur:
-            cur.execute(f"SELECT COUNT(DISTINCT session_id) FROM {PV} WHERE created_at > NOW() - INTERVAL '5 minutes'")
+            cur.execute("SELECT COUNT(DISTINCT session_id) FROM page_views WHERE created_at > NOW() - INTERVAL '5 minutes'")
             online_now = cur.fetchone()[0]
 
-            cur.execute(f"SELECT COUNT(DISTINCT session_id) FROM {PV} WHERE created_at > NOW() - INTERVAL '{days} days'")
+            cur.execute(f"SELECT COUNT(DISTINCT session_id) FROM page_views WHERE created_at > NOW() - INTERVAL '{days} days'")
             unique = cur.fetchone()[0]
 
-            cur.execute(f"SELECT COUNT(*) FROM {PV} WHERE created_at > NOW() - INTERVAL '{days} days'")
+            cur.execute(f"SELECT COUNT(*) FROM page_views WHERE created_at > NOW() - INTERVAL '{days} days'")
             total_views = cur.fetchone()[0]
 
             cur.execute(f"""
                 SELECT DATE(created_at), COUNT(DISTINCT session_id)
-                FROM {PV}
+                FROM page_views
                 WHERE created_at > NOW() - INTERVAL '{days} days'
                 GROUP BY DATE(created_at)
                 ORDER BY DATE(created_at) ASC
@@ -382,7 +379,7 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(f"""
                 SELECT path, COUNT(DISTINCT session_id) as visitors
-                FROM {PV}
+                FROM page_views
                 WHERE created_at > NOW() - INTERVAL '{days} days'
                 GROUP BY path
                 ORDER BY visitors DESC
