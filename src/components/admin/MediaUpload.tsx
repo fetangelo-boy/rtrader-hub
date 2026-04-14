@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
+import VideoGuide from "@/components/admin/VideoGuide";
 import func2url from "../../../backend/func2url.json";
 
 const UPLOAD_URL = "https://functions.poehali.dev/b53b7edb-1a17-424c-8ad3-25cc3b256dd0";
@@ -337,6 +338,7 @@ export default function MediaUpload({ value, onChange }: Props) {
                 onFileChange={e => onFileChange(e, "video")}
                 onDrop={file => uploadFile(file, "video")}
               />
+              <VideoGuide />
               {uploading === "video" && videoProgress > 0 && (
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-white/40">

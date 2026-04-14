@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { getAdminToken } from "@/hooks/useAdminAuth";
+import VideoGuide from "@/components/admin/VideoGuide";
 import { cmsGet, cmsCreate, cmsUpdate, cmsToggleVisible, cmsDelete } from "@/lib/adminCms";
 import func2url from "../../../../backend/func2url.json";
 
@@ -134,6 +135,7 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
               <div className="text-xs text-white/20">MP4, MOV, MKV, WebM — любой размер</div>
             </div>
           )}
+          <VideoGuide />
         </div>
       )}
 
