@@ -58,7 +58,7 @@ def handler(event: dict, context) -> dict:
             return err("session_id обязателен")
         conn2 = get_conn()
         with conn2.cursor() as cur:
-            cur.execute("INSERT INTO page_views (session_id, path, user_id) VALUES (%s, %s, %s)",
+            cur.execute("INSERT INTO page_views (session_id, page, user_id) VALUES (%s, %s, %s)",
                         (session_id, path, user_id if isinstance(user_id, int) else None))
         conn2.commit()
         conn2.close()
@@ -378,10 +378,10 @@ def handler(event: dict, context) -> dict:
             by_day = [{"date": str(r[0]), "visitors": r[1]} for r in cur.fetchall()]
 
             cur.execute(f"""
-                SELECT path, COUNT(DISTINCT session_id) as visitors
+                SELECT page, COUNT(DISTINCT session_id) as visitors
                 FROM page_views
                 WHERE created_at > NOW() - INTERVAL '{days} days'
-                GROUP BY path
+                GROUP BY page
                 ORDER BY visitors DESC
                 LIMIT 10
             """)
