@@ -166,6 +166,15 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
           </button>
         </div>
       )}
+
+      <div className="flex items-start gap-2 px-3 py-2.5 bg-white/3 border border-white/8 rounded-xl">
+        <Icon name="Lightbulb" size={13} className="text-yellow-400/70 shrink-0 mt-0.5" />
+        <div className="text-xs text-white/35 leading-relaxed">
+          Для видео больше 100 МБ рекомендуем загрузить на{" "}
+          <span className="text-white/55">YouTube</span> или{" "}
+          <span className="text-white/55">VK Video</span> и вставить ссылку — так видео загрузится быстрее и будет воспроизводиться без задержек
+        </div>
+      </div>
     </div>
   );
 }
