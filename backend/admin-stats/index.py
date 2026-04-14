@@ -18,13 +18,10 @@ CORS = {
 PLAN_PRICE = {"week": 990, "month": 2490, "quarter": 5990, "halfyear": 9990, "loyal": 1990}
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "public")
+PV = f"{SCHEMA}.page_views"  # полное имя таблицы с явной схемой
 
 def get_conn():
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    with conn.cursor() as cur:
-        cur.execute(f"SET search_path TO {SCHEMA}, public")
-    conn.commit()
-    return conn
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def ok(data):
     return {"statusCode": 200, "headers": {**CORS, "Content-Type": "application/json"}, "body": json.dumps(data, ensure_ascii=False, default=str)}
@@ -48,14 +45,33 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
+    qs = event.get("queryStringParameters") or {}
+    action = qs.get("action", "overview")
+
+    # === track — публичный, без авторизации ===
+    if action == "track":
+        try:
+            body = json.loads(event.get("body") or "{}")
+        except Exception:
+            return err("Невалидный JSON")
+        session_id = (body.get("session_id") or "").strip()[:64]
+        path = (body.get("path") or "/").strip()[:255]
+        user_id = body.get("user_id")
+        if not session_id:
+            return err("session_id обязателен")
+        conn2 = get_conn()
+        with conn2.cursor() as cur:
+            cur.execute(f"INSERT INTO {PV} (session_id, path, user_id) VALUES (%s, %s, %s)",
+                        (session_id, path, user_id if isinstance(user_id, int) else None))
+        conn2.commit()
+        conn2.close()
+        return ok({"ok": True})
+
     token = event.get("headers", {}).get("X-Auth-Token", "")
     conn = get_conn()
     admin = get_admin(conn, token)
     if not admin:
         return err("Нет доступа", 403)
-
-    qs = event.get("queryStringParameters") or {}
-    action = qs.get("action", "overview")
 
     if action == "overview":
         with conn.cursor() as cur:
@@ -346,46 +362,32 @@ def handler(event: dict, context) -> dict:
     if action == "visitors":
         days = min(int(qs.get("days", 30)), 365)
         with conn.cursor() as cur:
-            # Онлайн прямо сейчас (сессии за последние 5 минут)
-            cur.execute("""
-                SELECT COUNT(DISTINCT session_id) FROM page_views
-                WHERE created_at > NOW() - INTERVAL '5 minutes'
-            """)
+            cur.execute(f"SELECT COUNT(DISTINCT session_id) FROM {PV} WHERE created_at > NOW() - INTERVAL '5 minutes'")
             online_now = cur.fetchone()[0]
 
-            # Уникальных посетителей за период
-            cur.execute("""
-                SELECT COUNT(DISTINCT session_id) FROM page_views
-                WHERE created_at > NOW() - INTERVAL '%s days'
-            """ % days)
+            cur.execute(f"SELECT COUNT(DISTINCT session_id) FROM {PV} WHERE created_at > NOW() - INTERVAL '{days} days'")
             unique = cur.fetchone()[0]
 
-            # Всего просмотров за период
-            cur.execute("""
-                SELECT COUNT(*) FROM page_views
-                WHERE created_at > NOW() - INTERVAL '%s days'
-            """ % days)
+            cur.execute(f"SELECT COUNT(*) FROM {PV} WHERE created_at > NOW() - INTERVAL '{days} days'")
             total_views = cur.fetchone()[0]
 
-            # По дням за период
-            cur.execute("""
+            cur.execute(f"""
                 SELECT DATE(created_at), COUNT(DISTINCT session_id)
-                FROM page_views
-                WHERE created_at > NOW() - INTERVAL '%s days'
+                FROM {PV}
+                WHERE created_at > NOW() - INTERVAL '{days} days'
                 GROUP BY DATE(created_at)
                 ORDER BY DATE(created_at) ASC
-            """ % days)
+            """)
             by_day = [{"date": str(r[0]), "visitors": r[1]} for r in cur.fetchall()]
 
-            # Топ страниц
-            cur.execute("""
+            cur.execute(f"""
                 SELECT path, COUNT(DISTINCT session_id) as visitors
-                FROM page_views
-                WHERE created_at > NOW() - INTERVAL '%s days'
+                FROM {PV}
+                WHERE created_at > NOW() - INTERVAL '{days} days'
                 GROUP BY path
                 ORDER BY visitors DESC
                 LIMIT 10
-            """ % days)
+            """)
             top_pages = [{"path": r[0], "visitors": r[1]} for r in cur.fetchall()]
 
         return ok({
@@ -396,25 +398,5 @@ def handler(event: dict, context) -> dict:
             "top_pages": top_pages,
             "days": days,
         })
-
-    # === Трек посещения (вызывается с фронта) ===
-    if action == "track":
-        if event.get("httpMethod") != "POST":
-            return err("Только POST", 405)
-        try:
-            body = json.loads(event.get("body") or "{}")
-        except Exception:
-            return err("Невалидный JSON")
-        session_id = (body.get("session_id") or "").strip()[:64]
-        path = (body.get("path") or "/").strip()[:255]
-        user_id = body.get("user_id")
-        if not session_id:
-            return err("session_id обязателен")
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO page_views (session_id, path, user_id) VALUES (%s, %s, %s)
-            """, (session_id, path, user_id if isinstance(user_id, int) else None))
-            conn.commit()
-        return ok({"ok": True})
 
     return err("Неизвестное действие", 400)
