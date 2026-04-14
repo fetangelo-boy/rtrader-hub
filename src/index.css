@@ -391,7 +391,7 @@
    СВЕТЛАЯ ТЕМА
    ===================================================== */
 .light-theme {
-  --bg-deep: #f0f2f7;
+  /* --bg-deep намеренно не переопределяем — hero всегда тёмный */
 }
 
 /* Секция hero всегда тёмная */
@@ -401,12 +401,12 @@
 }
 
 .light-theme body {
-  background-color: #f0f2f7;
+  background-color: #f0f4f8;
   color: #111827;
 }
 
 .light-theme .neon-grid-bg {
-  background-color: #f0f2f7;
+  background-color: #f0f4f8;
   background-image:
     linear-gradient(rgba(0, 100, 200, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 100, 200, 0.04) 1px, transparent 1px);

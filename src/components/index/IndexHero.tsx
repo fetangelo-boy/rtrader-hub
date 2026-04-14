@@ -306,7 +306,7 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
       <HubNav />
 
       {/* HERO */}
-      <section id="hero" className="relative min-h-screen flex flex-col justify-center overflow-hidden pt-24" style={{ background: "var(--bg-deep, #06051a)" }}>
+      <section id="hero" className="relative min-h-screen flex flex-col justify-center overflow-hidden pt-24" style={{ background: "#06051a" }}>
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <img
             src="https://cdn.poehali.dev/projects/39a4ac3c-06be-41f0-97f1-cc3959260964/files/4b1069f6-e9ad-462d-9ecb-0fa02243b605.jpg"
