@@ -14,6 +14,26 @@ const LEVEL_COLORS: Record<string, string> = {
   Начинающий: "#22c55e", Средний: "#FFD700", Продвинутый: "#9B30FF", Любой: "#38BDF8",
 };
 
+function getEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+      let id = u.searchParams.get("v");
+      if (!id && u.hostname === "youtu.be") id = u.pathname.slice(1);
+      if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
+    }
+    if (u.hostname.includes("rutube.ru")) {
+      const m = url.match(/rutube\.ru\/(?:video|play\/embed)\/([a-f0-9]+)/i);
+      if (m) return `https://rutube.ru/play/embed/${m[1]}/`;
+    }
+    if (u.hostname.includes("vk.com") && u.pathname.includes("/video")) {
+      const m = url.match(/video(-?\d+)_(\d+)/);
+      if (m) return `https://vk.com/video_ext.php?oid=${m[1]}&id=${m[2]}&hd=2`;
+    }
+    return null;
+  } catch { return null; }
+}
+
 interface MediaItem { type: "image" | "audio" | "video" | "link"; url: string; label?: string; }
 interface Item {
   id: number; number: string; title: string; description: string;
@@ -144,6 +164,23 @@ export default function Education() {
                       </div>
                     )}
 
+                    {/* Видео-плеер */}
+                    {isOpen && item.video_url && (() => {
+                      const embed = getEmbedUrl(item.video_url);
+                      return embed ? (
+                        <div className="mb-4 rounded-xl overflow-hidden border border-white/10 bg-black/30 aspect-video">
+                          <iframe src={embed} className="w-full h-full" allow="clipboard-write; autoplay; fullscreen" allowFullScreen style={{ border: "none" }} />
+                        </div>
+                      ) : (
+                        <div className="mb-4">
+                          <a href={item.video_url} target="_blank" rel="noopener noreferrer"
+                            className="text-sm flex items-center gap-2 transition-colors" style={{ color: accent }}>
+                            <Icon name="Play" size={14} /> Смотреть видео
+                          </a>
+                        </div>
+                      );
+                    })()}
+
                     {/* Медиа */}
                     {isOpen && item.media_items && item.media_items.length > 0 && (
                       <MediaGallery items={item.media_items} />
@@ -152,23 +189,17 @@ export default function Education() {
                     {/* Футер */}
                     <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/8">
                       <div className="flex items-center gap-3">
-                        {item.video_url && (
-                          <a href={item.video_url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs flex items-center gap-1 text-[#38BDF8]/70 hover:text-[#38BDF8] transition-colors">
-                            <Icon name="Play" size={11} /> Видео
-                          </a>
-                        )}
                         {item.lessons > 0 && (
                           <span className="text-xs text-white/30">{item.lessons} уроков</span>
                         )}
                       </div>
-                      {(item.body || item.description) && (
+                      {(item.body || item.description || item.video_url) && (
                         <button onClick={() => setExpanded(isOpen ? null : item.id)}
                           className="text-xs flex items-center gap-1 font-semibold transition-colors"
                           style={{ color: `${accent}99` }}
                           onMouseOver={e => (e.currentTarget.style.color = accent)}
                           onMouseOut={e => (e.currentTarget.style.color = `${accent}99`)}>
-                          {isOpen ? "Свернуть" : "Читать"}
+                          {isOpen ? "Свернуть" : "Смотреть"}
                           <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={12} />
                         </button>
                       )}
