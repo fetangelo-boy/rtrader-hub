@@ -347,8 +347,8 @@ export default function IndexHero({ scrolled, menuOpen, setMenuOpen, navTo }: In
               <div className="flex flex-wrap gap-3 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
                 <Link to="/community"
                   className="neon-btn text-sm px-6 py-3 flex items-center gap-2">
-                  <Icon name="Users" size={16} />
-                  К комьюнити и аналитике
+                  <Icon name="MessageCircle" size={16} />
+                  Войти в чат
                 </Link>
                 <Link to={VIP_URL}
                   className="neon-btn text-sm px-6 py-3 flex items-center gap-2">

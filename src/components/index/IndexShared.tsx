@@ -4,7 +4,7 @@ export const VIP_URL = "/club";
 export const TG_URL = "https://t.me/RTrader11";
 
 export const NAV_ITEMS = [
-  { label: "Комьюнити", href: "/community", isRoute: true },
+  { label: "Чат", href: "/community", isRoute: true },
   { label: "Аналитика", href: "/analytics", isRoute: true },
   { label: "Рефлексии", href: "/reflections", isRoute: true },
   { label: "Конкурсы", href: "/tournaments", isRoute: true },
