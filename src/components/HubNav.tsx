@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useAuth } from "@/context/AuthContext";
 import { useSiteSections } from "@/hooks/useSiteSections";
-import { useTheme } from "@/context/ThemeContext";
 
 const ALL_SECTIONS = [
   { key: "community",   label: "Чат",        href: "/community",    icon: "MessageCircle", accent: "#00E5FF" },
@@ -19,7 +18,7 @@ export default function HubNav() {
   const { user } = useAuth();
   const isAdmin = !!user && (user.role === "owner" || user.role === "admin");
   const { data: siteSections } = useSiteSections();
-  const { theme, toggleTheme } = useTheme();
+
 
   // Пока данные не загружены — показываем все разделы (нет мерцания)
   const visibleKeys = siteSections
@@ -83,18 +82,7 @@ export default function HubNav() {
 
         {/* Правые кнопки */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            onClick={toggleTheme}
-            title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
-            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
-            style={{
-              background: theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-              border: theme === "dark" ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
-              color: theme === "dark" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
-            }}
-          >
-            <Icon name={theme === "dark" ? "Sun" : "Moon"} size={14} />
-          </button>
+
           {isAdmin && (
             <Link
               to="/rt-manage"

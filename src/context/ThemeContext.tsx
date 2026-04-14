@@ -13,25 +13,15 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    try {
-      return (localStorage.getItem("rtrader_theme") as Theme) || "dark";
-    } catch {
-      return "dark";
-    }
-  });
+  const [theme] = useState<Theme>("dark");
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "light") {
-      root.classList.add("light-theme");
-    } else {
-      root.classList.remove("light-theme");
-    }
-    localStorage.setItem("rtrader_theme", theme);
-  }, [theme]);
+    // Всегда тёмная тема — убираем light-theme если вдруг остался в localStorage
+    document.documentElement.classList.remove("light-theme");
+    localStorage.removeItem("rtrader_theme");
+  }, []);
 
-  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+  const toggleTheme = () => {};
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
