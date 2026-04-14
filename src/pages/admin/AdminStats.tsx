@@ -128,6 +128,8 @@ export default function AdminStats() {
     queryKey: ["admin-stats-visitors", visitorDays],
     queryFn: () => fetchStats("visitors", `&days=${visitorDays}`),
     refetchInterval: 30_000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const o = overview || {};
