@@ -1,10 +1,7 @@
 /**
- * Chunked multipart upload видео через backend.
- * Делит файл на куски по CHUNK_SIZE, отправляет последовательно,
- * сообщает прогресс через onProgress(0..100).
+ * Загрузка медиафайла (видео/аудио/фото) в S3 через backend.
+ * Файл конвертируется в base64 и отправляется одним POST-запросом.
  */
-
-const CHUNK_SIZE = 8 * 1024 * 1024; // 8 МБ — минимум для S3 multipart (кроме последнего)
 
 export async function uploadVideo(
   file: File,
@@ -12,69 +9,43 @@ export async function uploadVideo(
   token: string,
   onProgress?: (pct: number) => void,
 ): Promise<string> {
-  const mime = file.type || "video/mp4";
-  const base = `${videoUploadUrl}?token=${encodeURIComponent(token)}`;
+  onProgress?.(5);
 
-  // Шаг 1: init
-  const initRes = await fetch(
-    `${base}&action=init&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}`,
-    { method: "POST" },
-  );
-  if (!initRes.ok) {
-    const d = await initRes.json().catch(() => ({}));
-    throw new Error(d.error || `Ошибка инициализации: ${initRes.status}`);
-  }
-  const { upload_id, key } = await initRes.json();
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // убираем data:...;base64, префикс
+      const b64 = result.split(",")[1];
+      resolve(b64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
-  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-  const parts: { part: number; etag: string }[] = [];
+  onProgress?.(20);
 
-  // Шаг 2: загружаем чанки
-  for (let i = 0; i < totalChunks; i++) {
-    const start = i * CHUNK_SIZE;
-    const chunk = file.slice(start, start + CHUNK_SIZE);
-    const partNumber = i + 1;
-
-    const chunkRes = await fetch(
-      `${base}&action=chunk&key=${encodeURIComponent(key)}&upload_id=${encodeURIComponent(upload_id)}&part=${partNumber}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: chunk,
-      },
-    );
-
-    if (!chunkRes.ok) {
-      // Отменяем upload при ошибке
-      await fetch(
-        `${base}&action=abort&key=${encodeURIComponent(key)}&upload_id=${encodeURIComponent(upload_id)}`,
-        { method: "POST" },
-      ).catch(() => {});
-      const d = await chunkRes.json().catch(() => ({}));
-      throw new Error(d.error || `Ошибка загрузки части ${partNumber}: ${chunkRes.status}`);
-    }
-
-    const { etag } = await chunkRes.json();
-    parts.push({ part: partNumber, etag });
-    onProgress?.(Math.round(((i + 1) / totalChunks) * 95));
-  }
-
-  // Шаг 3: завершение
-  const completeRes = await fetch(
-    `${base}&action=complete&key=${encodeURIComponent(key)}&upload_id=${encodeURIComponent(upload_id)}`,
+  const res = await fetch(
+    `${videoUploadUrl}?token=${encodeURIComponent(token)}&action=upload`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parts),
+      body: JSON.stringify({
+        filename: file.name,
+        mime: file.type || "video/mp4",
+        data,
+      }),
     },
   );
 
-  if (!completeRes.ok) {
-    const d = await completeRes.json().catch(() => ({}));
-    throw new Error(d.error || `Ошибка завершения: ${completeRes.status}`);
+  onProgress?.(90);
+
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    throw new Error(d.error || `Ошибка загрузки: ${res.status}`);
   }
 
-  const { cdn_url } = await completeRes.json();
+  const { cdn_url } = await res.json();
   onProgress?.(100);
   return cdn_url;
 }

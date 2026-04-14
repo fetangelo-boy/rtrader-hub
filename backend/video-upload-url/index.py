@@ -1,17 +1,13 @@
 """
-Chunked multipart upload видео в S3.
-Шаг 1: POST ?action=init&filename=video.mp4&mime=video/mp4&token=...
-        → { upload_id, key }
-Шаг 2: POST ?action=chunk&key=...&upload_id=...&part=1&token=...  body=<binary chunk>
-        → { etag, part }
-Шаг 3: POST ?action=complete&key=...&upload_id=...&token=...  body=JSON [{part,etag}...]
-        → { cdn_url }
-Abort:  POST ?action=abort&key=...&upload_id=...&token=...
+Загрузка видео/аудио/фото в S3 через простой PUT (base64 в теле).
+POST ?action=upload&token=... body={"filename":"video.mp4","mime":"video/mp4","data":"<base64>"}
+  → { cdn_url }
 Требует token= в query (club owner/admin или admin_sessions).
 """
 import json
 import os
 import base64
+import uuid
 import psycopg2
 import boto3
 from botocore.config import Config
@@ -22,13 +18,13 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token, X-Admin-Token",
 }
 
-VIDEO_EXTS = {"mp4", "webm", "mov", "avi", "mkv"}
+ALLOWED_EXTS = {"mp4", "webm", "mov", "avi", "mkv", "mp3", "m4a", "wav", "ogg", "jpg", "jpeg", "png", "gif", "webp"}
 MIME_MAP = {
-    "mp4": "video/mp4",
-    "webm": "video/webm",
-    "mov": "video/quicktime",
-    "avi": "video/x-msvideo",
-    "mkv": "video/x-matroska",
+    "mp4": "video/mp4", "webm": "video/webm", "mov": "video/quicktime",
+    "avi": "video/x-msvideo", "mkv": "video/x-matroska",
+    "mp3": "audio/mpeg", "m4a": "audio/mp4", "wav": "audio/wav", "ogg": "audio/ogg",
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "gif": "image/gif", "webp": "image/webp",
 }
 
 def get_conn():
@@ -54,10 +50,7 @@ def check_token(token: str) -> bool:
             """, (token,))
             if cur.fetchone():
                 return True
-            cur.execute("""
-                SELECT id FROM admin_sessions
-                WHERE token = %s AND expires_at > NOW()
-            """, (token,))
+            cur.execute("SELECT id FROM admin_sessions WHERE token = %s AND expires_at > NOW()", (token,))
             if cur.fetchone():
                 return True
         return False
@@ -74,82 +67,50 @@ def make_s3():
     )
 
 def handler(event: dict, context) -> dict:
+    """Загрузка медиафайлов (видео/аудио/фото) в S3."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    headers = {k: v for k, v in (event.get("headers") or {}).items()}
+    headers = event.get("headers") or {}
     qs = event.get("queryStringParameters") or {}
 
     token = qs.get("token") or headers.get("X-Auth-Token", "") or headers.get("X-Admin-Token", "")
     if not check_token(token.strip()):
         return err("Нет прав", 403)
 
-    action = qs.get("action", "")
-    s3 = make_s3()
+    action = qs.get("action", "upload")
 
-    # === Шаг 1: инициализация multipart upload ===
-    if action == "init":
-        filename = (qs.get("filename") or "video.mp4").strip()
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
-        if ext not in VIDEO_EXTS:
-            return err(f"Недопустимый формат. Разрешены: {', '.join(sorted(VIDEO_EXTS)).upper()}")
-        mime = qs.get("mime") or MIME_MAP.get(ext, "video/mp4")
-        import uuid
-        key = f"videos/{uuid.uuid4().hex}.{ext}"
-        resp = s3.create_multipart_upload(Bucket="files", Key=key, ContentType=mime)
-        return ok({"upload_id": resp["UploadId"], "key": key})
-
-    # === Шаг 2: загрузка чанка ===
-    if action == "chunk":
-        key = qs.get("key", "")
-        upload_id = qs.get("upload_id", "")
-        part_number = int(qs.get("part", "1"))
-        if not key or not upload_id:
-            return err("key и upload_id обязательны")
-
-        body_raw = event.get("body") or ""
-        if event.get("isBase64Encoded"):
-            chunk_data = base64.b64decode(body_raw)
-        else:
-            chunk_data = body_raw.encode("latin-1") if isinstance(body_raw, str) else body_raw
-
-        resp = s3.upload_part(
-            Bucket="files",
-            Key=key,
-            UploadId=upload_id,
-            PartNumber=part_number,
-            Body=chunk_data,
-        )
-        return ok({"etag": resp["ETag"], "part": part_number})
-
-    # === Шаг 3: завершение multipart upload ===
-    if action == "complete":
-        key = qs.get("key", "")
-        upload_id = qs.get("upload_id", "")
-        if not key or not upload_id:
-            return err("key и upload_id обязательны")
-
-        body_raw = event.get("body") or "[]"
+    if action == "upload":
         try:
-            parts = json.loads(body_raw)
+            body = json.loads(event.get("body") or "{}")
         except Exception:
             return err("Невалидный JSON")
 
-        s3.complete_multipart_upload(
-            Bucket="files",
-            Key=key,
-            UploadId=upload_id,
-            MultipartUpload={"Parts": [{"PartNumber": p["part"], "ETag": p["etag"]} for p in parts]},
-        )
+        filename = (body.get("filename") or "file.mp4").strip()
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp4"
+        if ext not in ALLOWED_EXTS:
+            return err(f"Недопустимый формат. Разрешены: {', '.join(sorted(ALLOWED_EXTS)).upper()}")
+
+        mime = body.get("mime") or MIME_MAP.get(ext, "application/octet-stream")
+        data_b64 = body.get("data", "")
+        if not data_b64:
+            return err("Поле data (base64) обязательно")
+
+        # Определяем папку по типу
+        if ext in {"mp4", "webm", "mov", "avi", "mkv"}:
+            folder = "videos"
+        elif ext in {"mp3", "m4a", "wav", "ogg"}:
+            folder = "audio"
+        else:
+            folder = "photos"
+
+        file_bytes = base64.b64decode(data_b64)
+        key = f"{folder}/{uuid.uuid4().hex}.{ext}"
+
+        s3 = make_s3()
+        s3.put_object(Bucket="files", Key=key, Body=file_bytes, ContentType=mime)
+
         cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
-        return ok({"cdn_url": cdn_url, "url": cdn_url})
+        return ok({"cdn_url": cdn_url, "url": cdn_url, "key": key})
 
-    # === Отмена upload ===
-    if action == "abort":
-        key = qs.get("key", "")
-        upload_id = qs.get("upload_id", "")
-        if key and upload_id:
-            s3.abort_multipart_upload(Bucket="files", Key=key, UploadId=upload_id)
-        return ok({"aborted": True})
-
-    return err("Неизвестный action. Используй: init, chunk, complete, abort")
+    return err("Неизвестный action. Используй: upload")
