@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getAdminToken } from "@/hooks/useAdminAuth";
+import func2url from "../../backend/func2url.json";
 
 function playChime() {
   try {
@@ -41,7 +42,7 @@ function playChime() {
   }
 }
 
-const API = "https://functions.poehali.dev/58c8224f-b1da-4e1a-9c7a-09bf808c3c47";
+const API = (func2url as Record<string, string>)["admin"];
 const POLL_INTERVAL = 30_000;
 const SEEN_KEY = "admin_seen_pending_ids";
 const SOUND_KEY = "admin_sound_enabled";
@@ -92,17 +93,17 @@ export function usePendingAlerts() {
     });
   }, []);
 
+  const isFirstFetch = useRef(true);
+
   const fetchPending = useCallback(async () => {
     const token = getAdminToken();
     if (!token) return;
     try {
-      const res = await fetch(`${API}?action=list`, {
+      const res = await fetch(`${API}?action=subscribers&status=pending`, {
         headers: { "Content-Type": "application/json", "X-Auth-Token": token },
       });
       const data = await res.json();
-      const all: PendingEntry[] = (data.subscribers ?? []).filter(
-        (s: { status: string }) => s.status === "pending"
-      );
+      const all: PendingEntry[] = data.subscribers ?? [];
       setPending(all);
 
       const seen = getSeenIds();
@@ -110,7 +111,16 @@ export function usePendingAlerts() {
         .filter((s) => s.sub_id !== null && !seen.has(s.sub_id!))
         .map((s) => s.sub_id!);
 
-      if (freshIds.length > 0) {
+      if (isFirstFetch.current) {
+        // При первом запросе — просто запоминаем всё как виденное, без звука
+        // (они уже были до открытия вкладки)
+        isFirstFetch.current = false;
+        const seen2 = getSeenIds();
+        all.forEach((s) => { if (s.sub_id) seen2.add(s.sub_id); });
+        saveSeenIds(seen2);
+        setNewCount(0);
+      } else if (freshIds.length > 0) {
+        // Новые заявки появились во время сессии — показываем и играем
         setNewCount(freshIds.length);
         setShowBanner(true);
         if (getSoundEnabled()) playChime();
