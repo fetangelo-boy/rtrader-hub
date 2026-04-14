@@ -2,9 +2,35 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import func2url from "../../backend/func2url.json";
 
+// Глобальный AudioContext — создаём один раз и держим разблокированным
+let _audioCtx: AudioContext | null = null;
+
+function getAudioCtx(): AudioContext | null {
+  try {
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    }
+    return _audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+// Разблокируем AudioContext при первом взаимодействии пользователя
+if (typeof window !== "undefined") {
+  const unlock = () => {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === "suspended") ctx.resume();
+  };
+  window.addEventListener("click", unlock, { once: false });
+  window.addEventListener("keydown", unlock, { once: false });
+}
+
 function playChime() {
   try {
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
 
     const notes = [
       { freq: 523.25, start: 0,    dur: 0.35 },  // C5
@@ -35,10 +61,8 @@ function playChime() {
       osc.start(ctx.currentTime + start);
       osc.stop(ctx.currentTime + start + dur + 0.05);
     });
-
-    setTimeout(() => ctx.close(), 2000);
   } catch {
-    // silent — браузер заблокировал AudioContext
+    // silent
   }
 }
 
@@ -83,11 +107,13 @@ export function usePendingAlerts() {
   const [newCount, setNewCount] = useState(0);
   const [showBanner, setShowBanner] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState<boolean>(getSoundEnabled);
+  const soundEnabledRef = useRef<boolean>(getSoundEnabled());
   const prevCountRef = useRef<number | null>(null);
 
   const toggleSound = useCallback(() => {
     setSoundEnabledState((prev) => {
       const next = !prev;
+      soundEnabledRef.current = next;
       localStorage.setItem(SOUND_KEY, String(next));
       return next;
     });
@@ -123,7 +149,7 @@ export function usePendingAlerts() {
         // Новые заявки появились во время сессии — показываем и играем
         setNewCount(freshIds.length);
         setShowBanner(true);
-        if (getSoundEnabled()) playChime();
+        if (soundEnabledRef.current) playChime();
       } else if (prevCountRef.current !== null && all.length !== prevCountRef.current) {
         setNewCount(0);
       }
