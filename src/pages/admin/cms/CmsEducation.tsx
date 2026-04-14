@@ -44,10 +44,6 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
 
   const uploadFile = async (file: File) => {
     setSizeWarning("");
-    if (file.size > 800 * 1024 * 1024) {
-      setError("Файл слишком большой (макс. 800 МБ). Лучше загрузи на YouTube/VK и вставь ссылку");
-      return;
-    }
     if (file.size > 100 * 1024 * 1024) {
       setSizeWarning(`Большой файл (${Math.round(file.size / 1024 / 1024)} МБ) — загрузка займёт несколько минут`);
     }
@@ -57,30 +53,33 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
     try {
       const token = getAdminToken();
       const mime = file.type || "video/mp4";
-      // Шлём бинарно — токен в query-параметре, без base64 в памяти
-      const url = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`;
+
+      // Шаг 1: получаем presigned URL от backend
+      const presignRes = await fetch(
+        `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`
+      );
+      if (!presignRes.ok) {
+        const d = await presignRes.json().catch(() => ({}));
+        throw new Error(d.error || `Ошибка ${presignRes.status}`);
+      }
+      const { upload_url, cdn_url } = await presignRes.json();
+
+      // Шаг 2: браузер льёт файл напрямую в S3 (минуя функцию — нет лимита 413)
       const cdnUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", url);
+        xhr.open("PUT", upload_url);
         xhr.setRequestHeader("Content-Type", mime);
         xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 95));
+          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 98));
         };
         xhr.onload = () => {
-          if (xhr.status < 300) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              if (data.url || data.cdn_url) resolve(data.url || data.cdn_url);
-              else reject(new Error(data.error || "Нет URL в ответе"));
-            } catch { reject(new Error("Ошибка ответа сервера")); }
-          } else {
-            try { reject(new Error(JSON.parse(xhr.responseText).error || `Ошибка ${xhr.status}`)); }
-            catch { reject(new Error(`Ошибка ${xhr.status}`)); }
-          }
+          if (xhr.status < 300) resolve(cdn_url);
+          else reject(new Error(`Ошибка загрузки в хранилище: ${xhr.status}`));
         };
         xhr.onerror = () => reject(new Error("Ошибка сети — попробуй ссылку на YouTube/VK"));
         xhr.send(file);
       });
+
       setProgress(100);
       onChange(cdnUrl);
     } catch (e: unknown) {
