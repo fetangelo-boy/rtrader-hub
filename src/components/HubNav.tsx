@@ -31,7 +31,7 @@ export default function HubNav() {
     : ALL_SECTIONS;
 
   return (
-    <div className="fixed top-0 inset-x-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
+    <div className="fixed top-0 inset-x-0 z-50 backdrop-blur-xl border-b border-white/10" style={{ background: "rgba(6,5,26,0.88)" }}>
       <div className="max-w-screen-xl mx-auto px-4 h-12 flex items-center justify-between gap-2">
 
         {/* Логотип */}
