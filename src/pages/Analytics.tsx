@@ -184,17 +184,17 @@ export default function Analytics() {
                             <span className="text-white/40">Риск: {item.risk}</span>
                           </span>
                         )}
-                        {item.video_url && (
+                        {isOpen && item.video_url && (
                           <a href={item.video_url} target="_blank" rel="noopener noreferrer"
                             className="text-xs flex items-center gap-1 text-[#FFD700]/70 hover:text-[#FFD700] transition-colors">
                             <Icon name="Play" size={11} /> Видеообзор
                           </a>
                         )}
                       </div>
-                      {!isSignal && item.body && (
+                      {!isSignal && (item.body || (item.media_items && item.media_items.length > 0) || item.video_url) && (
                         <button onClick={() => setExpanded(isOpen ? null : item.id)}
                           className="text-xs flex items-center gap-1 text-[#FFD700]/70 hover:text-[#FFD700] transition-colors font-semibold">
-                          {isOpen ? "Свернуть" : "Читать полностью"}
+                          {isOpen ? "Свернуть" : "Смотреть / читать"}
                           <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={12} />
                         </button>
                       )}
