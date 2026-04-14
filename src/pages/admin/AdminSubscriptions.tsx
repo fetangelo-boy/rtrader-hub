@@ -155,6 +155,13 @@ export default function AdminSubscriptions() {
     load();
   };
 
+  const doDeleteUser = async (sub: Subscriber) => {
+    if (!confirm(`Удалить пользователя «${sub.nickname}» (${sub.email})?\n\nВсе данные, сессии и подписки будут удалены безвозвратно.`)) return;
+    const d = await api("delete_user", { user_id: sub.user_id });
+    flash(d.message || d.error || "Готово");
+    load();
+  };
+
   const doToggleEditor = async (sub: Subscriber) => {
     const isEditor = sub.role === "editor";
     const newRole = isEditor ? "subscriber" : "editor";
@@ -385,6 +392,10 @@ export default function AdminSubscriptions() {
                       ) : null}
                     </>
                   )}
+                  <button title="Удалить пользователя" onClick={() => doDeleteUser(sub)}
+                    className="w-8 h-8 rounded-lg bg-red-500/5 border border-red-500/15 text-red-400/50 flex items-center justify-center hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all">
+                    <Icon name="Trash2" size={13} />
+                  </button>
                 </div>
               </div>
             );

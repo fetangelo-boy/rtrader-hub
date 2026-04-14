@@ -679,5 +679,20 @@ def handler(event: dict, context) -> dict:
         status = "включено" if is_active else "отключено"
         return ok({"message": f"Стоп-слово «{row[0]}» {status}"})
 
+    if action == "delete_user":
+        user_id = body.get("user_id")
+        if not user_id:
+            return err("user_id обязателен")
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM club_subscriptions WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM club_sessions WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM tg_link_tokens WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM club_users WHERE id = %s RETURNING nickname, email", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                return err("Пользователь не найден")
+            conn.commit()
+        return ok({"message": f"Пользователь {row[0]} ({row[1]}) удалён"})
+
     conn.close()
     return err("Неизвестное действие", 400)
