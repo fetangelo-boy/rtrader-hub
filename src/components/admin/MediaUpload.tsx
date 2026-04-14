@@ -327,6 +327,8 @@ export default function MediaUpload({ value, onChange }: Props) {
             </button>
           </div>
 
+          <VideoGuide />
+
           {videoUploadMode === "file" ? (
             <>
               <DropZone
@@ -338,7 +340,6 @@ export default function MediaUpload({ value, onChange }: Props) {
                 onFileChange={e => onFileChange(e, "video")}
                 onDrop={file => uploadFile(file, "video")}
               />
-              <VideoGuide />
               {uploading === "video" && videoProgress > 0 && (
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-white/40">

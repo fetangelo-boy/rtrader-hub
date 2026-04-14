@@ -135,9 +135,10 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
               <div className="text-xs text-white/20">MP4, MOV, MKV, WebM — любой размер</div>
             </div>
           )}
-          <VideoGuide />
         </div>
       )}
+
+      <VideoGuide />
 
       {sizeWarning && (
         <div className="text-xs text-yellow-400 flex items-center gap-1">

@@ -343,22 +343,21 @@ export default function VideoSection() {
               </p>
             </div>
           ) : (
-            <>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className={`flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
-                  videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
-                }`}
-              >
-                <Icon name={videoFile ? "CheckCircle" : "Film"} size={22} className={videoFile ? "text-primary" : "text-muted-foreground"} />
-                <span className="text-xs text-muted-foreground text-center">
-                  {videoFile ? videoFile.name : "Нажмите или перетащите видео (MP4, WebM, MKV, MOV — любой размер)"}
-                </span>
-                <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" className="hidden" onChange={handleFileChange} />
-              </div>
-              <VideoGuide />
-            </>
+            <div
+              onClick={() => fileRef.current?.click()}
+              className={`flex flex-col items-center justify-center gap-2 px-4 py-5 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+                videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
+              }`}
+            >
+              <Icon name={videoFile ? "CheckCircle" : "Film"} size={22} className={videoFile ? "text-primary" : "text-muted-foreground"} />
+              <span className="text-xs text-muted-foreground text-center">
+                {videoFile ? videoFile.name : "Нажмите или перетащите видео (MP4, WebM, MKV, MOV — любой размер)"}
+              </span>
+              <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo,video/x-matroska,.mkv" className="hidden" onChange={handleFileChange} />
+            </div>
           )}
+
+          <VideoGuide />
 
           {uploading && uploadMode === "file" && (
             <div className="space-y-1.5">
