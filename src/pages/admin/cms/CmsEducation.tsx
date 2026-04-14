@@ -105,9 +105,10 @@ function VideoUpload({ value, onChange }: { value: string; onChange: (url: strin
       <div className="flex gap-2">
         <input
           value={linkInput}
-          onChange={e => setLinkInput(e.target.value)}
+          onChange={e => { setLinkInput(e.target.value); onChange(e.target.value.trim()); }}
           onKeyDown={e => e.key === "Enter" && applyLink()}
-          placeholder="Или вставь ссылку — YouTube, VK, Rutube, .mp4..."
+          onBlur={applyLink}
+          placeholder="Или вставь ссылку — YouTube, VK, Rutube..."
           className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/25 transition-colors"
         />
         <button type="button" onClick={applyLink} disabled={!linkInput.trim()}
@@ -251,6 +252,9 @@ export default function CmsEducation() {
     else if (editing) await cmsUpdate(SECTION, editing.id, form);
     await load(); setSaving(false); closeForm();
   };
+
+  // Обновляем video_url из внешнего linkInput если он не был применён кнопкой +
+  const updateVideoUrl = (url: string) => f("video_url", url);
 
   const toggle = async (item: Item) => {
     await cmsToggleVisible(SECTION, item.id, !item.is_visible);
