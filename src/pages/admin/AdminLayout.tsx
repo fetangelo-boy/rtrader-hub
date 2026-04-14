@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { getAdminUsername } from "@/hooks/useAdminAuth";
-import { usePendingAlerts } from "@/hooks/usePendingAlerts";
+import { usePendingAlerts, testChime } from "@/hooks/usePendingAlerts";
 
 interface Props {
   children: React.ReactNode;
@@ -67,6 +67,15 @@ export default function AdminLayout({ children, onLogout }: Props) {
             <Icon name={soundEnabled ? "Volume2" : "VolumeX"} size={13} />
             <span className="hidden sm:inline">{soundEnabled ? "Звук вкл" : "Звук выкл"}</span>
           </button>
+          {soundEnabled && (
+            <button
+              onClick={testChime}
+              title="Проверить звук"
+              className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 text-white/30 flex items-center justify-center hover:text-sky-300 hover:bg-sky-400/10 hover:border-sky-400/25 transition-all"
+            >
+              <Icon name="Bell" size={12} />
+            </button>
+          )}
           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
             <div className="w-5 h-5 rounded-full brand-gradient-bg flex items-center justify-center flex-shrink-0">
               <Icon name="User" size={11} className="text-black" />

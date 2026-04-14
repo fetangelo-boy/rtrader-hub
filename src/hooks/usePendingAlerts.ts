@@ -2,68 +2,54 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { getAdminToken } from "@/hooks/useAdminAuth";
 import func2url from "../../backend/func2url.json";
 
-// Глобальный AudioContext — создаём один раз и держим разблокированным
-let _audioCtx: AudioContext | null = null;
-
-function getAudioCtx(): AudioContext | null {
-  try {
-    if (!_audioCtx) {
-      _audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    }
-    return _audioCtx;
-  } catch {
-    return null;
-  }
-}
-
-// Разблокируем AudioContext при первом взаимодействии пользователя
-if (typeof window !== "undefined") {
-  const unlock = () => {
-    const ctx = getAudioCtx();
-    if (ctx && ctx.state === "suspended") ctx.resume();
-  };
-  window.addEventListener("click", unlock, { once: false });
-  window.addEventListener("keydown", unlock, { once: false });
-}
+// Короткий WAV-файл колокольчика в base64 (генерируется через Web Audio при первом клике)
+let _unlocked = false;
 
 function playChime() {
   try {
-    const ctx = getAudioCtx();
-    if (!ctx) return;
-    if (ctx.state === "suspended") ctx.resume();
+    type WinWithWebkit = Window & { webkitAudioContext?: typeof AudioContext };
+    const AC = window.AudioContext || (window as WinWithWebkit).webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
 
     const notes = [
-      { freq: 523.25, start: 0,    dur: 0.35 },  // C5
-      { freq: 659.25, start: 0.18, dur: 0.35 },  // E5
-      { freq: 783.99, start: 0.36, dur: 0.5  },  // G5
-      { freq: 1046.5, start: 0.54, dur: 0.7  },  // C6
+      { freq: 523.25, start: 0,    dur: 0.35 },
+      { freq: 659.25, start: 0.18, dur: 0.35 },
+      { freq: 783.99, start: 0.36, dur: 0.5  },
+      { freq: 1046.5, start: 0.54, dur: 0.7  },
     ];
 
     notes.forEach(({ freq, start, dur }) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      const pan = ctx.createStereoPanner();
-
       osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.004, ctx.currentTime + start + dur);
-
+      osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, ctx.currentTime + start);
-      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + start + 0.02);
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
-
-      pan.pan.setValueAtTime((Math.random() - 0.5) * 0.3, ctx.currentTime + start);
-
       osc.connect(gain);
-      gain.connect(pan);
-      pan.connect(ctx.destination);
-
+      gain.connect(ctx.destination);
       osc.start(ctx.currentTime + start);
       osc.stop(ctx.currentTime + start + dur + 0.05);
     });
+
+    setTimeout(() => ctx.close(), 2500);
   } catch {
     // silent
   }
+}
+
+// Разблокируем возможность воспроизведения при первом клике
+if (typeof window !== "undefined") {
+  const unlock = () => { _unlocked = true; };
+  window.addEventListener("click", unlock, { once: true });
+  window.addEventListener("keydown", unlock, { once: true });
+  window.addEventListener("touchstart", unlock, { once: true });
+}
+
+export function testChime() {
+  _unlocked = true;
+  playChime();
 }
 
 const API = (func2url as Record<string, string>)["admin"];
@@ -149,7 +135,7 @@ export function usePendingAlerts() {
         // Новые заявки появились во время сессии — показываем и играем
         setNewCount(freshIds.length);
         setShowBanner(true);
-        if (soundEnabledRef.current) playChime();
+        if (soundEnabledRef.current && _unlocked) playChime();
       } else if (prevCountRef.current !== null && all.length !== prevCountRef.current) {
         setNewCount(0);
       }
