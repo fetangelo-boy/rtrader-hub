@@ -14,6 +14,26 @@ const RISK_COLORS: Record<string, string> = {
   низкий: "#22c55e", средний: "#FFD700", высокий: "#ff4444",
 };
 
+function getEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+      let id = u.searchParams.get("v");
+      if (!id && u.hostname === "youtu.be") id = u.pathname.slice(1);
+      if (id) return `https://www.youtube.com/embed/${id}?rel=0`;
+    }
+    if (u.hostname.includes("rutube.ru")) {
+      const m = url.match(/rutube\.ru\/(?:video|play\/embed)\/([a-f0-9]+)/i);
+      if (m) return `https://rutube.ru/play/embed/${m[1]}/`;
+    }
+    if (u.hostname.includes("vk.com") && u.pathname.includes("/video")) {
+      const m = url.match(/video(-?\d+)_(\d+)/);
+      if (m) return `https://vk.com/video_ext.php?oid=${m[1]}&id=${m[2]}&hd=2`;
+    }
+    return null;
+  } catch { return null; }
+}
+
 interface MediaItem { type: "image" | "audio" | "video" | "link"; url: string; label?: string; }
 interface Item {
   id: number; type: string; instrument: string; title: string; category: string;
@@ -162,16 +182,28 @@ export default function Analytics() {
                       </div>
                     )}
 
+                    {/* Видео-плеер */}
+                    {!isSignal && isOpen && item.video_url && (() => {
+                      const embed = getEmbedUrl(item.video_url);
+                      return embed ? (
+                        <div className="mb-4 rounded-xl overflow-hidden border border-white/10 bg-black/30 aspect-video">
+                          <iframe src={embed} className="w-full h-full" allow="clipboard-write; autoplay; fullscreen" allowFullScreen style={{ border: "none" }} />
+                        </div>
+                      ) : (
+                        <div className="mb-4">
+                          <a href={item.video_url} target="_blank" rel="noopener noreferrer"
+                            className="text-sm flex items-center gap-2 text-[#FFD700]/70 hover:text-[#FFD700] transition-colors">
+                            <Icon name="Play" size={14} /> Смотреть видео
+                          </a>
+                        </div>
+                      );
+                    })()}
+
                     {/* Полный текст обзора */}
                     {!isSignal && item.body && isOpen && (
                       <div className="mb-4 pt-3 border-t border-white/8">
                         <RenderText text={item.body} accent="#FFD700" className="text-white/60 text-sm" />
                       </div>
-                    )}
-
-                    {/* Медиа */}
-                    {isOpen && item.media_items && item.media_items.length > 0 && (
-                      <MediaGallery items={item.media_items} />
                     )}
 
                     {/* Футер */}
@@ -183,12 +215,6 @@ export default function Analytics() {
                               style={{ background: RISK_COLORS[item.risk] || "#FFD700" }} />
                             <span className="text-white/40">Риск: {item.risk}</span>
                           </span>
-                        )}
-                        {isOpen && item.video_url && (
-                          <a href={item.video_url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs flex items-center gap-1 text-[#FFD700]/70 hover:text-[#FFD700] transition-colors">
-                            <Icon name="Play" size={11} /> Видеообзор
-                          </a>
                         )}
                       </div>
                       {!isSignal && (item.body || (item.media_items && item.media_items.length > 0) || item.video_url) && (

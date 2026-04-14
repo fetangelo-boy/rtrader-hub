@@ -2,13 +2,11 @@ import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { cmsGet, cmsCreate, cmsUpdate, cmsToggleVisible, cmsDelete } from "@/lib/adminCms";
 import ImageUpload from "@/components/admin/ImageUpload";
-import MediaUpload from "@/components/admin/MediaUpload";
-import TagSelect from "@/components/admin/TagSelect";
 
 const SECTION = "analytics";
 const CATS = ["Акции РФ", "Нефть и газ", "Металлы", "Валюта", "Криптовалюта"];
 const RISKS = ["низкий", "средний", "высокий"];
-const TAGS_LIST = ["Акции", "Фьючерсы", "Валюта", "Крипто", "Обзор рынка", "Сделка дня"];
+
 
 interface MediaItem { type: "image" | "audio" | "video" | "link"; url: string; label?: string; }
 
@@ -209,43 +207,30 @@ export default function CmsAnalytics() {
             {currentType === "review" && (
               <>
                 <div>
-                  <label className="text-xs text-white/40 mb-1.5 block">Полный текст обзора</label>
-                  <textarea rows={12} value={form.body} onChange={e => f("body", e.target.value)}
-                    placeholder="Текст обзора. Можно вставлять ссылки (они станут кликабельными) и #хэштеги..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none resize-y min-h-[160px]" />
-                </div>
-                <div>
                   <label className="text-xs text-white/40 mb-1.5 block">
-                    Ссылка на видеообзор
-                    <span className="text-white/20 ml-2">— YouTube, VK, Telegram и т.п.</span>
+                    Ссылка на видео
+                    <span className="text-white/20 ml-2">— YouTube, Rutube, VK</span>
                   </label>
                   <input value={form.video_url} onChange={e => f("video_url", e.target.value)}
-                    placeholder="https://youtube.com/..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none transition-colors" />
+                    placeholder="https://rutube.ru/video/..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#FFD700]/40 transition-colors" />
+                </div>
+                <div>
+                  <label className="text-xs text-white/40 mb-1.5 block">Текст (необязательно)</label>
+                  <textarea rows={4} value={form.body} onChange={e => f("body", e.target.value)}
+                    placeholder="Краткое описание обзора..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none resize-none" />
                 </div>
               </>
             )}
 
-            {/* Теги */}
-            <div>
-              <label className="text-xs text-white/40 mb-2 block">Теги</label>
-              <TagSelect options={TAGS_LIST} value={form.tags} onChange={v => f("tags", v)} accent="#FFD700" />
-            </div>
-
-            {/* Изображение */}
-            <div>
-              <label className="text-xs text-white/40 mb-2 block">
-                {currentType === "signal" ? "График / скриншот" : "Обложка / иллюстрация"}
-              </label>
-              <ImageUpload value={form.image_url} onChange={v => f("image_url", v)} />
-            </div>
-
-            {/* Медиа-материалы */}
-            <div>
-              <label className="text-xs text-white/40 mb-2 block">Медиа-материалы</label>
-              <p className="text-xs text-white/25 mb-2">Добавьте фото, аудио, видео или ссылки к материалу</p>
-              <MediaUpload value={form.media_items} onChange={v => f("media_items", v)} />
-            </div>
+            {/* Изображение — только для сигналов */}
+            {currentType === "signal" && (
+              <div>
+                <label className="text-xs text-white/40 mb-2 block">График / скриншот</label>
+                <ImageUpload value={form.image_url} onChange={v => f("image_url", v)} />
+              </div>
+            )}
 
             <div className="flex items-center gap-3 pt-2 border-t border-white/8">
               <button onClick={save} disabled={saving || !form.title}
