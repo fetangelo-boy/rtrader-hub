@@ -210,27 +210,26 @@ export default function VideoSection() {
         setUploadProgress(5);
 
         const mime = videoFile.type || "video/mp4";
-        const uploadUrl = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(videoFile.name)}&mime=${encodeURIComponent(mime)}`;
+
+        const presignRes = await fetch(
+          `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(videoFile.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token!)}`
+        );
+        if (!presignRes.ok) {
+          const d = await presignRes.json().catch(() => ({}));
+          throw new Error(d.error || `Ошибка ${presignRes.status}`);
+        }
+        const { upload_url, cdn_url } = await presignRes.json();
 
         finalVideoUrl = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("POST", uploadUrl);
+          xhr.open("PUT", upload_url);
           xhr.setRequestHeader("Content-Type", mime);
-          xhr.setRequestHeader("X-Auth-Token", token!);
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress(5 + Math.round((e.loaded / e.total) * 87));
+            if (e.lengthComputable) setUploadProgress(5 + Math.round((e.loaded / e.total) * 90));
           };
           xhr.onload = () => {
-            if (xhr.status < 300) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.url || data.cdn_url) resolve(data.url || data.cdn_url);
-                else reject(new Error(data.error || "Нет URL"));
-              } catch { reject(new Error("Ошибка ответа")); }
-            } else {
-              try { reject(new Error(JSON.parse(xhr.responseText).error || `Ошибка ${xhr.status}`)); }
-              catch { reject(new Error(`Ошибка ${xhr.status}`)); }
-            }
+            if (xhr.status < 300) resolve(cdn_url);
+            else reject(new Error(`Ошибка загрузки в хранилище: ${xhr.status}`));
           };
           xhr.onerror = () => reject(new Error("Ошибка сети"));
           xhr.send(videoFile);

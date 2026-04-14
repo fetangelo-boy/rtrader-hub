@@ -149,33 +149,31 @@ export default function MediaUpload({ value, onChange }: Props) {
     setError("");
     setVideoProgress(0);
 
-    // Видео — бинарный POST напрямую в функцию, с прогрессом через XHR
+    // Видео — presigned PUT напрямую в S3 (без лимита 413)
     if (type === "video") {
       try {
         const mime = file.type || "video/mp4";
-        const url = `${VIDEO_UPLOAD_URL}?filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}`;
         const token = getAdminToken();
+
+        const presignRes = await fetch(
+          `${VIDEO_UPLOAD_URL}?action=presign&filename=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(mime)}&token=${encodeURIComponent(token)}`
+        );
+        if (!presignRes.ok) {
+          const d = await presignRes.json().catch(() => ({}));
+          throw new Error(d.error || `Ошибка ${presignRes.status}`);
+        }
+        const { upload_url, cdn_url } = await presignRes.json();
+
         const cdnUrl = await new Promise<string>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open("POST", url);
+          xhr.open("PUT", upload_url);
           xhr.setRequestHeader("Content-Type", mime);
-          xhr.setRequestHeader("X-Auth-Token", token);
           xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setVideoProgress(Math.round((e.loaded / e.total) * 95));
+            if (e.lengthComputable) setVideoProgress(Math.round((e.loaded / e.total) * 98));
           };
           xhr.onload = () => {
-            if (xhr.status < 300) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.url || data.cdn_url) resolve(data.url || data.cdn_url);
-                else reject(new Error(data.error || "Нет URL в ответе"));
-              } catch { reject(new Error("Ошибка ответа сервера")); }
-            } else {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                reject(new Error(data.error || `Ошибка ${xhr.status}`));
-              } catch { reject(new Error(`Ошибка ${xhr.status}`)); }
-            }
+            if (xhr.status < 300) resolve(cdn_url);
+            else reject(new Error(`Ошибка загрузки в хранилище: ${xhr.status}`));
           };
           xhr.onerror = () => reject(new Error("Ошибка сети"));
           xhr.send(file);
