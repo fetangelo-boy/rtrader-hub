@@ -124,6 +124,12 @@ export default function AdminStats() {
     refetchInterval: 120_000,
   });
 
+  const { data: neverBought } = useQuery({
+    queryKey: ["admin-stats-never-bought"],
+    queryFn: () => fetchStats("never_bought_list"),
+    staleTime: 0,
+  });
+
   const { data: visitors } = useQuery({
     queryKey: ["admin-stats-visitors", visitorDays],
     queryFn: () => fetchStats("visitors", `&days=${visitorDays}`),
@@ -368,6 +374,48 @@ export default function AdminStats() {
             <div className="text-2xl font-russo text-neon-yellow">{a.sales_total ?? "—"}</div>
           </div>
         </div>
+
+        {/* Список "Ни разу не покупали" */}
+        {neverBought?.users?.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-white/8">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-white/40 uppercase tracking-wider">
+                Зарегистрированы, но не купили — {neverBought.count} чел.
+              </div>
+              <button
+                disabled={exportLoading === "never_bought_csv"}
+                onClick={async () => {
+                  setExportLoading("never_bought_csv");
+                  try {
+                    await downloadCsv(
+                      `${STATS_URL}?action=never_bought_csv`,
+                      `never_bought_${new Date().toISOString().slice(0,10)}.csv`,
+                      authHeaders()
+                    );
+                  } finally { setExportLoading(null); }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-all disabled:opacity-40"
+              >
+                <Icon name="Download" size={12} /> CSV
+              </button>
+            </div>
+            <div className="space-y-1">
+              {neverBought.users.map((u: { nickname: string; email: string; telegram: string; registered: string }) => (
+                <div key={u.email} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-white/3 border border-white/5">
+                  <div className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center text-xs font-bold text-white/50 flex-shrink-0">
+                    {(u.nickname || u.email)[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white/80">{u.nickname || "—"}</div>
+                    <div className="text-xs text-white/35">{u.email}</div>
+                  </div>
+                  {u.telegram && <div className="text-xs text-neon-cyan/70">{u.telegram}</div>}
+                  <div className="text-xs text-white/25 flex-shrink-0">{u.registered}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Выручка по периоду */}

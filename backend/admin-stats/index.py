@@ -396,4 +396,47 @@ def handler(event: dict, context) -> dict:
             "days": days,
         })
 
+    # === Список "ни разу не покупали" ===
+    if action == "never_bought_list":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.nickname, u.email, u.telegram_username, u.created_at
+                FROM club_users u
+                WHERE u.role NOT IN ('owner','admin')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM club_subscriptions s
+                    WHERE s.user_id = u.id AND s.status IN ('active','expired','pending')
+                  )
+                ORDER BY u.created_at DESC
+            """)
+            rows = cur.fetchall()
+        users = [{"nickname": r[0], "email": r[1], "telegram": f"@{r[2]}" if r[2] else "", "registered": r[3].strftime("%d.%m.%Y") if r[3] else ""} for r in rows]
+        return ok({"users": users, "count": len(users)})
+
+    # === CSV "ни разу не покупали" ===
+    if action == "never_bought_csv":
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT u.nickname, u.email, u.telegram_username, u.created_at
+                FROM club_users u
+                WHERE u.role NOT IN ('owner','admin')
+                  AND NOT EXISTS (
+                    SELECT 1 FROM club_subscriptions s
+                    WHERE s.user_id = u.id AND s.status IN ('active','expired','pending')
+                  )
+                ORDER BY u.created_at DESC
+            """)
+            rows = cur.fetchall()
+        lines = ["Никнейм,Email,Telegram,Дата регистрации"]
+        for r in rows:
+            tg = f"@{r[2]}" if r[2] else ""
+            date = r[3].strftime("%d.%m.%Y") if r[3] else ""
+            lines.append(f'"{r[0] or ""}","{r[1]}","{tg}","{date}"')
+        return {
+            "statusCode": 200,
+            "headers": {**CORS, "Content-Type": "text/csv; charset=utf-8",
+                        "Content-Disposition": "attachment; filename=never_bought.csv"},
+            "body": "\n".join(lines),
+        }
+
     return err("Неизвестное действие", 400)
