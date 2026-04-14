@@ -370,15 +370,34 @@ export default function AdminStats() {
 
       {/* Выручка по периоду */}
       <div className="glass-card p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="font-russo text-base text-white">Выручка по тарифам</h2>
-          <div className="flex gap-1">
-            {[30, 90, 365].map(d => (
-              <button key={d} onClick={() => setRevDays(d)}
-                className={cn("px-3 py-1 rounded-lg text-xs transition-all", revDays === d ? "bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/30" : "text-white/30 hover:text-white/60")}>
-                {d === 365 ? "Год" : d === 90 ? "Квартал" : "Месяц"}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {[30, 90, 365].map(d => (
+                <button key={d} onClick={() => setRevDays(d)}
+                  className={cn("px-3 py-1 rounded-lg text-xs transition-all", revDays === d ? "bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/30" : "text-white/30 hover:text-white/60")}>
+                  {d === 365 ? "Год" : d === 90 ? "Квартал" : "Месяц"}
+                </button>
+              ))}
+            </div>
+            <button
+              disabled={exportLoading === "payments_csv"}
+              onClick={async () => {
+                setExportLoading("payments_csv");
+                try {
+                  await downloadCsv(
+                    `${STATS_URL}?action=payments_csv&days=${revDays}`,
+                    `payments_${revDays}d_${new Date().toISOString().slice(0,10)}.csv`,
+                    authHeaders()
+                  );
+                } finally { setExportLoading(null); }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs border border-white/10 text-white/40 hover:text-white hover:border-white/25 transition-all disabled:opacity-40"
+            >
+              <Icon name="Download" size={12} />
+              CSV
+            </button>
           </div>
         </div>
         {revenue?.breakdown?.length ? (

@@ -15,7 +15,7 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token",
 }
 
-PLAN_PRICE = {"week": 990, "month": 2490, "quarter": 5990, "halfyear": 9990, "loyal": 1990}
+PLAN_PRICE: dict = {}  # цены берутся только из pricing_plans в БД
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
