@@ -86,9 +86,14 @@ export default function HubNav() {
           <button
             onClick={toggleTheme}
             title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
-            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all border border-white/15 text-white/40 hover:text-white hover:border-white/30"
+            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+            style={{
+              background: theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+              border: theme === "dark" ? "1px solid rgba(255,255,255,0.2)" : "1px solid rgba(0,0,0,0.2)",
+              color: theme === "dark" ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.6)",
+            }}
           >
-            <Icon name={theme === "dark" ? "Sun" : "Moon"} size={13} />
+            <Icon name={theme === "dark" ? "Sun" : "Moon"} size={14} />
           </button>
           {isAdmin && (
             <Link
