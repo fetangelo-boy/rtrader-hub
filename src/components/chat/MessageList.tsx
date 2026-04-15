@@ -11,6 +11,32 @@ interface Props {
   onReply?: (replyTo: ReplyTo) => void;
 }
 
+const URL_REGEX = /(https?:\/\/[^\s<>"]+)/g;
+
+function MessageText({ text }: { text: string }) {
+  const parts = text.split(URL_REGEX);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 underline underline-offset-2 hover:text-blue-300 break-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
 const ROLE_COLOR: Record<string, string> = {
   admin: "text-neon-cyan",
   vip: "text-neon-yellow",
@@ -120,7 +146,7 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
                       </div>
                     </div>
                   )}
-                  {msg.text}
+                  <MessageText text={msg.text} />
                 </div>
 
                 <div className={cn(
