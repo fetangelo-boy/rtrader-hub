@@ -1,4 +1,5 @@
 {
+  "tg-community-webhook": "https://functions.poehali.dev/42f8f3ec-cb2a-4f88-a3bc-14f990deb7bc",
   "video-upload-url": "https://functions.poehali.dev/9fb709e0-d101-4f19-a757-5f63144f2453",
   "import-message": "https://functions.poehali.dev/32dd0404-0e7d-431a-aba9-603fedffa261",
   "tg-vip-bot": "https://functions.poehali.dev/4807e4da-e564-4aba-8072-c30326d968ee",
