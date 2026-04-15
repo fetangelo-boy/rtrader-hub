@@ -140,7 +140,7 @@ def handler(event: dict, context) -> dict:
                     SELECT id, text, created_at, public_nickname AS nickname,
                            'member' AS role, NULL AS user_id,
                            reply_to_id, reply_to_nickname, reply_to_text,
-                           public_nickname, image_url, public_role
+                           public_nickname, image_url, public_role, from_telegram
                     FROM club_chat
                     WHERE source = 'public' AND is_hidden = FALSE
                     ORDER BY created_at ASC LIMIT %s
@@ -150,7 +150,7 @@ def handler(event: dict, context) -> dict:
                 "id": r[0], "text": r[1], "created_at": r[2].isoformat(),
                 "nickname": r[9] or "Аноним", "role": r[11] or "member", "user_id": None,
                 "reply_to_id": r[6], "reply_to_nickname": r[7], "reply_to_text": r[8],
-                "image_url": r[10]
+                "image_url": r[10], "from_telegram": bool(r[12])
             } for r in rows]
             return ok({"messages": messages})
 

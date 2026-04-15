@@ -33,6 +33,7 @@ export interface Message {
   edited?: boolean;
   userId?: number;
   replyTo?: ReplyTo | null;
+  fromTelegram?: boolean;
 }
 
 export interface SendMessagePayload {

@@ -58,8 +58,8 @@ def save_message(text: str, nickname: str, role: str, image_url: str = None):
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO club_chat (channel, text, source, public_nickname, public_role, image_url, is_hidden)
-            VALUES ('chat', %s, 'public', %s, %s, %s, FALSE)
+            INSERT INTO club_chat (channel, text, source, public_nickname, public_role, image_url, is_hidden, from_telegram)
+            VALUES ('chat', %s, 'public', %s, %s, %s, FALSE, TRUE)
             RETURNING id
             """,
             (text or "", nickname[:32], role, image_url),

@@ -1,0 +1,1 @@
+ALTER TABLE t_p67093308_rtrader_hub.club_chat ADD COLUMN IF NOT EXISTS from_telegram boolean NOT NULL DEFAULT false;

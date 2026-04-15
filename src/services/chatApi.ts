@@ -44,6 +44,7 @@ function mapRole(role: string): User["role"] {
 function mapMessage(raw: {
   id: number; text: string; created_at: string; nickname: string; role: string; user_id?: number;
   reply_to_id?: number | null; reply_to_nickname?: string | null; reply_to_text?: string | null;
+  from_telegram?: boolean;
 }, channelId: string): Message {
   return {
     id: String(raw.id),
@@ -51,6 +52,7 @@ function mapMessage(raw: {
     text: raw.text,
     createdAt: formatTime(raw.created_at),
     userId: raw.user_id,
+    fromTelegram: !!raw.from_telegram,
     replyTo: raw.reply_to_id
       ? { id: raw.reply_to_id, nickname: raw.reply_to_nickname ?? "", text: raw.reply_to_text ?? "" }
       : null,

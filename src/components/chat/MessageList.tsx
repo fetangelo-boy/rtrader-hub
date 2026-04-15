@@ -94,6 +94,11 @@ export default function MessageList({ messages, currentUserId, isAdmin, onDelete
                     {ROLE_BADGE[msg.author.role]}
                   </span>
                 )}
+                {msg.fromTelegram && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider bg-blue-500/15 text-blue-400 border border-blue-500/20">
+                    TG
+                  </span>
+                )}
                 <span className="text-[11px] text-white/30">{msg.createdAt}</span>
               </div>
 
