@@ -26,12 +26,13 @@ export default function PublicCommunity() {
   // Тип отправки: VIP-авторизованный идёт через club-api, гость — public
   const isVip = !!token && !!user;
 
+  const [showNickModal, setShowNickModal] = useState(false);
+
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["public-messages"],
     queryFn: () => chatApi.getMessages("chat", "public"),
     staleTime: 0,
     refetchInterval: 5000,
-    enabled: !!nickname,
   });
 
   const sendMessage = useMutation({
@@ -49,8 +50,11 @@ export default function PublicCommunity() {
   };
 
   const handleSend = (text: string, replyToId?: number | null) => {
+    if (!nickname) {
+      setShowNickModal(true);
+      return;
+    }
     if (isVip) {
-      // Авторизованный: шлём через публичный чат, но с токеном — бэкенд подставит настоящий ник
       sendMessage.mutate({ channelId: "chat", text, source: "public", nickname: user!.nickname, replyToId });
     } else {
       sendMessage.mutate({ channelId: "chat", text, source: "public", nickname: guestNick, replyToId });
@@ -58,19 +62,23 @@ export default function PublicCommunity() {
     setReplyTo(null);
   };
 
-  // Показываем форму ввода ника только гостям без сохранённого ника
-  if (!nickname) {
-    return (
-      <div className="min-h-screen bg-[hsl(var(--background))] text-white flex flex-col">
-        <PublicHeader />
-        <div className="flex-1 flex items-center justify-center px-4">
+  return (
+    <div className="flex flex-col bg-[hsl(var(--background))] text-white" style={{ height: "100dvh" }}>
+      <PublicHeader
+        nickname={nickname}
+        isVip={isVip}
+        onRename={isVip ? undefined : () => { localStorage.removeItem(NICKNAME_KEY); setGuestNick(""); setGuestNickInput(""); }}
+      />
+
+      {showNickModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="w-full max-w-sm glass-card rounded-2xl p-8 border border-white/10 flex flex-col gap-5">
             <div className="text-center">
               <div className="w-12 h-12 rounded-xl bg-neon-yellow/10 border border-neon-yellow/20 flex items-center justify-center mx-auto mb-3">
                 <Icon name="MessageSquare" size={24} className="text-neon-yellow" />
               </div>
               <h2 className="text-lg font-russo tracking-wider mb-1">Представьтесь</h2>
-              <p className="text-white/40 text-sm">Введите никнейм чтобы участвовать в чате</p>
+              <p className="text-white/40 text-sm">Введите никнейм чтобы писать в чате</p>
             </div>
             <input
               value={guestNickInput}
@@ -81,16 +89,24 @@ export default function PublicCommunity() {
               autoFocus
               className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-neon-yellow/40 transition-colors"
             />
-            <button
-              onClick={handleSetGuestNick}
-              disabled={!guestNickInput.trim()}
-              className={cn(
-                "py-3 rounded-xl font-semibold text-sm transition-all",
-                guestNickInput.trim() ? "bg-neon-yellow text-black hover:opacity-90" : "bg-white/5 text-white/20 cursor-not-allowed"
-              )}
-            >
-              Войти в чат
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowNickModal(false)}
+                className="flex-1 py-3 rounded-xl text-sm text-white/40 hover:text-white/70 transition-colors border border-white/10"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => { handleSetGuestNick(); setShowNickModal(false); }}
+                disabled={!guestNickInput.trim()}
+                className={cn(
+                  "flex-1 py-3 rounded-xl font-semibold text-sm transition-all",
+                  guestNickInput.trim() ? "bg-neon-yellow text-black hover:opacity-90" : "bg-white/5 text-white/20 cursor-not-allowed"
+                )}
+              >
+                Войти в чат
+              </button>
+            </div>
             <p className="text-center text-xs text-white/25">
               Уже есть аккаунт?{" "}
               <Link to="/login" className="text-neon-yellow/60 hover:text-neon-yellow transition-colors underline underline-offset-2">
@@ -99,17 +115,7 @@ export default function PublicCommunity() {
             </p>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col bg-[hsl(var(--background))] text-white" style={{ height: "100dvh" }}>
-      <PublicHeader
-        nickname={nickname}
-        isVip={isVip}
-        onRename={isVip ? undefined : () => { localStorage.removeItem(NICKNAME_KEY); setGuestNick(""); setGuestNickInput(""); }}
-      />
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="h-10 shrink-0 flex items-center gap-2 px-4 border-b border-white/5 bg-black/10">
