@@ -1,0 +1,1 @@
+UPDATE t_p67093308_rtrader_hub.club_chat SET is_hidden = TRUE WHERE id = 157;

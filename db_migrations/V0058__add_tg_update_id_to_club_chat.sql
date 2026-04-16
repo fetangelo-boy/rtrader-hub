@@ -1,0 +1,2 @@
+ALTER TABLE t_p67093308_rtrader_hub.club_chat ADD COLUMN IF NOT EXISTS tg_update_id bigint;
+CREATE UNIQUE INDEX IF NOT EXISTS club_chat_tg_update_id_unique ON t_p67093308_rtrader_hub.club_chat (tg_update_id) WHERE tg_update_id IS NOT NULL;

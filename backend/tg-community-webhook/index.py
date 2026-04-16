@@ -53,16 +53,16 @@ def get_role(tg_user: dict) -> str:
     return "member"
 
 
-def save_message(text: str, nickname: str, role: str, image_url: str = None):
+def save_message(text: str, nickname: str, role: str, image_url: str = None, update_id: int = None):
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO club_chat (channel, text, source, public_nickname, public_role, image_url, is_hidden, from_telegram)
-            VALUES ('chat', %s, 'public', %s, %s, %s, FALSE, TRUE)
+            INSERT INTO club_chat (channel, text, source, public_nickname, public_role, image_url, is_hidden, from_telegram, tg_update_id)
+            VALUES ('chat', %s, 'public', %s, %s, %s, FALSE, TRUE, %s)
             RETURNING id
             """,
-            (text or "", nickname[:32], role, image_url),
+            (text or "", nickname[:32], role, image_url, update_id),
         )
         msg_id = cur.fetchone()[0]
         conn.commit()
@@ -118,6 +118,20 @@ def handler(event: dict, context) -> dict:
     token = os.environ.get("TELEGRAM_COMMUNITY_BOT_TOKEN", "")
     body = json.loads(event.get("body") or "{}")
 
+    # Защита от дублей по update_id
+    update_id = body.get("update_id")
+    if update_id:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM club_chat WHERE source = 'public' AND from_telegram = TRUE AND tg_update_id = %s LIMIT 1",
+                (update_id,)
+            )
+            if cur.fetchone():
+                conn.close()
+                return ok({"ok": True, "skipped": "duplicate"})
+        conn.close()
+
     message = body.get("message")
     if not message:
         return ok({"ok": True, "skipped": "no message"})
@@ -144,5 +158,5 @@ def handler(event: dict, context) -> dict:
     nickname = get_display_name(tg_user)
     role = get_role(tg_user)
 
-    msg_id = save_message(text, nickname, role, image_url)
+    msg_id = save_message(text, nickname, role, image_url, update_id)
     return ok({"ok": True, "message_id": msg_id})

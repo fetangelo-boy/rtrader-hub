@@ -1,0 +1,1 @@
+UPDATE t_p67093308_rtrader_hub.club_chat SET is_hidden = TRUE WHERE source = 'public' AND (text IS NULL OR text = '') AND (image_url IS NULL OR image_url = '');
