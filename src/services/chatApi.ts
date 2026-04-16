@@ -96,7 +96,8 @@ export const chatApi = {
     const r = await fetch(url, { headers });
     if (!r.ok) return [];
     const d = await r.json();
-    return (d.messages || []).map((m: Parameters<typeof mapMessage>[0]) => mapMessage(m, channelId));
+    const msgs = (d.messages || []).map((m: Parameters<typeof mapMessage>[0]) => mapMessage(m, channelId));
+    return source === "public" ? msgs.reverse() : msgs;
   },
 
   sendMessage: async (payload: SendMessagePayload): Promise<Message> => {

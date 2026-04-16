@@ -143,7 +143,7 @@ def handler(event: dict, context) -> dict:
                            public_nickname, image_url, public_role, from_telegram
                     FROM club_chat
                     WHERE source = 'public' AND is_hidden = FALSE
-                    ORDER BY created_at ASC LIMIT %s
+                    ORDER BY created_at DESC LIMIT %s
                 """, (limit,))
                 rows = cur.fetchall()
             messages = [{
