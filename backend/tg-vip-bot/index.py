@@ -135,7 +135,8 @@ def handler(event: dict, context) -> dict:
             f"━━━━━━━━━━━━━━\n"
             f"{text}"
         )
-        send(ADMIN_TG_ID, forward_text)
+        reply_markup = {"inline_keyboard": [[{"text": "↩️ Ответить", "url": f"tg://user?id={tg_id}"}]]}
+        tg("sendMessage", {"chat_id": ADMIN_TG_ID, "text": forward_text, "parse_mode": "HTML", "reply_markup": reply_markup})
         send(chat_id, "✅ Сообщение передано администратору. Ожидайте ответа.")
         return ok({"ok": True})
 
