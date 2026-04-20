@@ -30,10 +30,12 @@ export interface Message {
   author: User;
   text: string;
   createdAt: string;
+  createdDate: string;
   edited?: boolean;
   userId?: number;
   replyTo?: ReplyTo | null;
   fromTelegram?: boolean;
+  imageUrl?: string | null;
 }
 
 export interface SendMessagePayload {

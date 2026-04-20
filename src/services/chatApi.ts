@@ -31,6 +31,14 @@ function formatTime(isoStr: string): string {
   }
 }
 
+function formatDate(isoStr: string): string {
+  try {
+    return new Date(isoStr).toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
 function makeInitials(name: string): string {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
@@ -44,15 +52,17 @@ function mapRole(role: string): User["role"] {
 function mapMessage(raw: {
   id: number; text: string; created_at: string; nickname: string; role: string; user_id?: number;
   reply_to_id?: number | null; reply_to_nickname?: string | null; reply_to_text?: string | null;
-  from_telegram?: boolean;
+  from_telegram?: boolean; image_url?: string | null;
 }, channelId: string): Message {
   return {
     id: String(raw.id),
     channelId,
     text: raw.text,
     createdAt: formatTime(raw.created_at),
+    createdDate: formatDate(raw.created_at),
     userId: raw.user_id,
     fromTelegram: !!raw.from_telegram,
+    imageUrl: raw.image_url ?? null,
     replyTo: raw.reply_to_id
       ? { id: raw.reply_to_id, nickname: raw.reply_to_nickname ?? "", text: raw.reply_to_text ?? "" }
       : null,
