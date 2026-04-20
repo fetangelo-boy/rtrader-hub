@@ -119,6 +119,24 @@ def handler(event: dict, context) -> dict:
             send(chat_id, "📌 <b>Команды:</b>\n/status — статус подписки\n/help — помощь\n\n🌐 rtrader11.ru")
             return ok({"ok": True})
 
+        # Любое другое сообщение — пересылаем админу
+        ADMIN_TG_ID = 716116024
+        with conn.cursor() as cur:
+            cur.execute("SELECT nickname, email FROM club_users WHERE telegram_id = %s", (tg_id,))
+            sub = cur.fetchone()
+        if sub:
+            sub_label = f"<b>{sub[0]}</b> ({sub[1]})"
+        else:
+            uname_label = f"@{tg_uname}" if tg_uname else f"ID {tg_id}"
+            sub_label = f"<b>{uname_label}</b> (не привязан к сайту)"
+        forward_text = (
+            f"💬 <b>Сообщение от подписчика</b>\n"
+            f"👤 {sub_label}\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"{text}"
+        )
+        send(ADMIN_TG_ID, forward_text)
+        send(chat_id, "✅ Сообщение передано администратору. Ожидайте ответа.")
         return ok({"ok": True})
 
     # Одноразовая регистрация webhook (публичный, без авторизации)
