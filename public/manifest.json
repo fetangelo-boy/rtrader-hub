@@ -2,7 +2,7 @@
   "name": "RTrader — Трейдинговый портал",
   "short_name": "RTrader",
   "description": "RTrader — главный трейдинговый хаб: обучение, аналитика, комьюнити, VIP-клуб",
-  "start_url": "/",
+  "start_url": "/community",
   "display": "standalone",
   "background_color": "#0a0a0f",
   "theme_color": "#f5c518",
