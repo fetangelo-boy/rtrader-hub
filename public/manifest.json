@@ -1,0 +1,33 @@
+{
+  "name": "RTrader — Трейдинговый портал",
+  "short_name": "RTrader",
+  "description": "RTrader — главный трейдинговый хаб: обучение, аналитика, комьюнити, VIP-клуб",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#f5c518",
+  "orientation": "portrait-primary",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "https://cdn.poehali.dev/projects/39a4ac3c-06be-41f0-97f1-cc3959260964/files/930c8587-9365-4612-977f-416e97c2c722.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn.poehali.dev/projects/39a4ac3c-06be-41f0-97f1-cc3959260964/files/930c8587-9365-4612-977f-416e97c2c722.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["finance", "business"],
+  "screenshots": [
+    {
+      "src": "https://cdn.poehali.dev/projects/39a4ac3c-06be-41f0-97f1-cc3959260964/bucket/3efb0c6c-635a-45ae-9c9f-f35aaf8d4320.png",
+      "sizes": "800x800",
+      "type": "image/png"
+    }
+  ]
+}
