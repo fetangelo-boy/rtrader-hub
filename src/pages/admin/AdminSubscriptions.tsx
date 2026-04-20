@@ -64,7 +64,7 @@ export default function AdminSubscriptions() {
   const [statusFilter, setStatusFilter] = useState(searchParams.get("filter") || searchParams.get("status") || "all");
   const [noTgFilter, setNoTgFilter] = useState(false);
   const [selected, setSelected] = useState<Subscriber | null>(null);
-  const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | null>(null);
+  const [modal, setModal] = useState<"grant" | "expires" | "plan" | "history" | "dm" | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -77,6 +77,7 @@ export default function AdminSubscriptions() {
   });
   const [newExpires, setNewExpires] = useState("");
   const [newPlan, setNewPlan] = useState("month");
+  const [dmText, setDmText] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,6 +154,21 @@ export default function AdminSubscriptions() {
     const d = await api("deactivate", { subscription_id: sub.sub_id });
     flash(d.message || "Готово");
     load();
+  };
+
+  const openDm = (sub: Subscriber) => {
+    setSelected(sub);
+    setDmText("");
+    setModal("dm");
+  };
+
+  const doSendDm = async () => {
+    if (!selected || !dmText.trim()) return;
+    setSaving(true);
+    const d = await api("send_dm", { user_id: selected.user_id, message: dmText.trim() });
+    setSaving(false);
+    closeModal();
+    flash(d.message || d.error || "Готово");
   };
 
   const doDeleteUser = async (sub: Subscriber) => {
@@ -356,6 +372,14 @@ export default function AdminSubscriptions() {
 
                 {/* Действия */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {sub.telegram_id && (
+                    <button
+                      title="Написать в Telegram"
+                      onClick={() => openDm(sub)}
+                      className="w-8 h-8 rounded-lg bg-[#29b6f6]/10 border border-[#29b6f6]/20 text-[#29b6f6] flex items-center justify-center hover:bg-[#29b6f6]/20 transition-all">
+                      <Icon name="MessageCircle" size={13} />
+                    </button>
+                  )}
                   <button
                     title={sub.role === "editor" ? "Снять роль редактора" : "Назначить редактором"}
                     onClick={() => doToggleEditor(sub)}
@@ -409,7 +433,7 @@ export default function AdminSubscriptions() {
           <div className={`glass-card w-full p-6 flex flex-col gap-4 ${modal === "history" ? "max-w-lg" : "max-w-sm"}`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-russo text-base text-white">
-                {modal === "grant" ? "Выдать доступ" : modal === "expires" ? "Изменить дату" : modal === "plan" ? "Изменить тариф" : "История изменений"}
+                {modal === "grant" ? "Выдать доступ" : modal === "expires" ? "Изменить дату" : modal === "plan" ? "Изменить тариф" : modal === "dm" ? "Написать в Telegram" : "История изменений"}
               </h3>
               <button onClick={closeModal} className="text-white/30 hover:text-white"><Icon name="X" size={16} /></button>
             </div>
@@ -477,6 +501,34 @@ export default function AdminSubscriptions() {
                 <button onClick={doChangePlan} disabled={saving}
                   className="neon-btn text-sm py-2.5 disabled:opacity-40">
                   {saving ? "Сохраняю..." : "Изменить тариф"}
+                </button>
+              </div>
+            )}
+
+            {modal === "dm" && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#29b6f6]/8 border border-[#29b6f6]/20">
+                  <Icon name="Send" size={13} style={{ color: "#29b6f6" }} />
+                  <span className="text-xs text-[#29b6f6]">
+                    {selected?.telegram_username ? `@${selected.telegram_username}` : `TG ID: ${selected?.telegram_id}`}
+                  </span>
+                </div>
+                <div>
+                  <label className="text-xs text-white/40 mb-1.5 block">Текст сообщения</label>
+                  <textarea
+                    value={dmText}
+                    onChange={e => setDmText(e.target.value)}
+                    placeholder="Введите сообщение..."
+                    rows={5}
+                    maxLength={4000}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#29b6f6]/40 transition-colors resize-none"
+                  />
+                  <div className="text-xs text-white/20 text-right mt-1">{dmText.length}/4000</div>
+                </div>
+                <button onClick={doSendDm} disabled={saving || !dmText.trim()}
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm bg-[#29b6f6]/15 border border-[#29b6f6]/30 text-[#29b6f6] hover:bg-[#29b6f6]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                  <Icon name="Send" size={13} />
+                  {saving ? "Отправляю..." : "Отправить"}
                 </button>
               </div>
             )}

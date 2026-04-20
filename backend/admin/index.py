@@ -679,6 +679,26 @@ def handler(event: dict, context) -> dict:
         status = "включено" if is_active else "отключено"
         return ok({"message": f"Стоп-слово «{row[0]}» {status}"})
 
+    if action == "send_dm":
+        target_user_id = body.get("user_id")
+        message_text = (body.get("message") or "").strip()
+        if not target_user_id:
+            return err("user_id обязателен")
+        if not message_text:
+            return err("Сообщение не может быть пустым")
+        if len(message_text) > 4000:
+            return err("Сообщение слишком длинное (макс. 4000 символов)")
+        with conn.cursor() as cur:
+            cur.execute("SELECT telegram_id, nickname FROM club_users WHERE id = %s", (target_user_id,))
+            row = cur.fetchone()
+        if not row:
+            return err("Пользователь не найден")
+        tg_id, tg_nick = row[0], row[1]
+        if not tg_id:
+            return err("У этого пользователя не привязан Telegram")
+        tg_send(tg_id, message_text)
+        return ok({"message": f"Сообщение отправлено {tg_nick}"})
+
     if action == "delete_user":
         user_id = body.get("user_id")
         if not user_id:
