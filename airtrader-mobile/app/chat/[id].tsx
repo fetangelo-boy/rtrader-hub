@@ -38,7 +38,7 @@ export default function ChatDetailsScreen() {
       <View style={styles.container}>
         <Stack.Screen options={{ title: 'Chat' }} />
         <Text style={styles.title}>
-          {hasError ? 'Failed to load chat' : isLoading ? 'Loading chat...' : 'Chat not found'}
+          {hasError ? 'Access denied or chat unavailable' : isLoading ? 'Loading chat...' : 'Chat not found'}
         </Text>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>Go back</Text>

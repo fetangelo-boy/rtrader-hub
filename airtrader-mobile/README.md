@@ -34,14 +34,14 @@ AirTrader Mobile is an Expo + React Native app connected to Supabase auth and a 
 Required client values:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-- `EXPO_PUBLIC_API_BASE_URL` (for emulator/device)
+- `EXPO_PUBLIC_API_URL` (for emulator/device)
 
 Required server values:
 - `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PORT` (optional, default `3000`)
 
 ## Notes
 - For Android emulator, usually use `http://10.0.2.2:3000` as API base URL.
 - tRPC endpoint path is `/api/trpc`.
+- Chat/account routes are strict API mode now (no offline fallback data in UI).

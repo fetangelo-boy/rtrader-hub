@@ -19,13 +19,25 @@ export type TrpcContext = {
 
 const supabaseAdmin = createClient(serverEnv.SUPABASE_URL, serverEnv.SUPABASE_SERVICE_ROLE_KEY);
 
+function createRlsClient(token?: string): SupabaseClient {
+  return createClient(serverEnv.SUPABASE_URL, serverEnv.SUPABASE_ANON_KEY, {
+    global: token
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined,
+  });
+}
+
 export async function createTrpcContext({
   req,
   res,
 }: CreateExpressContextOptions): Promise<TrpcContext> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
-    return { req, res, user: null, supabase: supabaseAdmin };
+    return { req, res, user: null, supabase: createRlsClient() };
   }
 
   const token = authHeader.slice('Bearer '.length);
@@ -42,6 +54,6 @@ export async function createTrpcContext({
       id: data.user.id,
       email: data.user.email,
     },
-    supabase: supabaseAdmin,
+    supabase: createRlsClient(token),
   };
 }

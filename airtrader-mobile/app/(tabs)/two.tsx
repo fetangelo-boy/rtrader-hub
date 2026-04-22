@@ -2,26 +2,19 @@ import { FlatList, Pressable, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import { Text, View } from '@/components/Themed';
 import { trpc } from '@/lib/trpc';
-import { chatPreviews, type ChatPreview } from '@/constants/mockData';
 
 export default function TabTwoScreen() {
   const chatListQuery = trpc.chat.list.useQuery(undefined, {
     retry: 1,
   });
-  const chats: Array<{ id: string; name: string; lastMessage: string }> = chatListQuery.data
-    ? chatListQuery.data
-    : chatPreviews.map((chat: ChatPreview) => ({
-        id: chat.id,
-        name: chat.title,
-        lastMessage: chat.lastMessage,
-      }));
+  const chats = chatListQuery.data ?? [];
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>VIP Club Chats</Text>
       <Text style={styles.subtitle}>Open a room to read updates and continue discussion.</Text>
       {chatListQuery.isLoading ? <Text>Loading chats...</Text> : null}
-      {chatListQuery.error ? <Text>Using offline demo chats.</Text> : null}
+      {chatListQuery.error ? <Text>Failed to load chats from API.</Text> : null}
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
@@ -34,6 +27,11 @@ export default function TabTwoScreen() {
             </Pressable>
           </Link>
         )}
+        ListEmptyComponent={
+          !chatListQuery.isLoading && !chatListQuery.error ? (
+            <Text style={styles.empty}>You are not a participant in any chats yet.</Text>
+          ) : null
+        }
       />
     </View>
   );
@@ -72,5 +70,10 @@ const styles = StyleSheet.create({
   chatLastMessage: {
     marginTop: 4,
     opacity: 0.8,
+  },
+  empty: {
+    opacity: 0.75,
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
