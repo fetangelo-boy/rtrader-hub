@@ -4,6 +4,8 @@ const serverEnvSchema = z.object({
   SUPABASE_URL: z.url(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
+  HEALTHCHECK_TOKEN: z.string().min(1).optional(),
   PORT: z
     .string()
     .optional()

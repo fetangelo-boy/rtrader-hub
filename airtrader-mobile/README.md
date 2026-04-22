@@ -38,8 +38,11 @@ Required client values:
 
 Required server values:
 - `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PORT` (optional, default `3000`)
+- `JWT_SECRET` (required by backend environment policy)
+- `HEALTHCHECK_TOKEN` (recommended in production to protect `/server/health/db`)
 
 ## Notes
 - For Android emulator, usually use `http://10.0.2.2:3000` as API base URL.
