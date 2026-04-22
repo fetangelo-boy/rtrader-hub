@@ -13,12 +13,7 @@ import {
 
 const app = express();
 const supabaseAdmin = createSupabaseAdminClient();
-let lastSchemaHealth = await checkSupabaseSchema(supabaseAdmin);
-
-if (lastSchemaHealth.status !== 'ok') {
-  // eslint-disable-next-line no-console
-  console.error('Supabase schema health check failed at startup', lastSchemaHealth);
-}
+let lastSchemaHealth: ReturnType<typeof buildSchemaHealthResponse> | null = null;
 
 app.use(
   cors({
@@ -54,7 +49,24 @@ app.use(
 );
 
 const port = serverEnv.PORT;
-app.listen(port, () => {
+
+async function startServer() {
+  const schemaHealth = await checkSupabaseSchema(supabaseAdmin);
+  lastSchemaHealth = buildSchemaHealthResponse(schemaHealth);
+
+  if (schemaHealth.status !== 'ok') {
+    // eslint-disable-next-line no-console
+    console.error('Supabase schema health check failed at startup', schemaHealth);
+  }
+
+  app.listen(port, () => {
+    // eslint-disable-next-line no-console
+    console.log(`AirTrader tRPC API listening on :${port}`);
+  });
+}
+
+startServer().catch((error) => {
   // eslint-disable-next-line no-console
-  console.log(`AirTrader tRPC API listening on :${port}`);
+  console.error('Failed to start AirTrader tRPC API', error);
+  process.exit(1);
 });
