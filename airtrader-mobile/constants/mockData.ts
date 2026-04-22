@@ -12,6 +12,13 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+export type MarketCard = {
+  id: string;
+  title: string;
+  value: string;
+  change: string;
+};
+
 export const chatPreviews: ChatPreview[] = [
   {
     id: 'macro-room',
@@ -30,6 +37,27 @@ export const chatPreviews: ChatPreview[] = [
     title: 'VIP Signals',
     members: 56,
     lastMessage: 'New gold setup published with tight invalidation.',
+  },
+];
+
+export const marketCards: MarketCard[] = [
+  {
+    id: 'btc',
+    title: 'BTC/USDT',
+    value: '68,240',
+    change: '+1.8% (24h)',
+  },
+  {
+    id: 'gold',
+    title: 'XAU/USD',
+    value: '2,356',
+    change: '+0.6% (24h)',
+  },
+  {
+    id: 'dxy',
+    title: 'DXY',
+    value: '104.2',
+    change: '-0.3% (24h)',
   },
 ];
 

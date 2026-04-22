@@ -1,9 +1,27 @@
 import { Alert, Pressable, StyleSheet } from 'react-native';
+import { Redirect, router } from 'expo-router';
 import { Text, View } from '@/components/Themed';
+import { useAuth } from '@/hooks/use-auth';
+import { trpc } from '@/lib/trpc';
 
 export default function AccountScreen() {
-  const handleLogout = () => {
-    Alert.alert('Signed out', 'This is a local MVP flow. Auth integration comes next.');
+  const { session, signOut, isLoading } = useAuth();
+  const { data: subscription } = trpc.account.getSubscription.useQuery(undefined, {
+    enabled: !!session,
+  });
+
+  if (!isLoading && !session) {
+    return <Redirect href={"/auth/login" as any} />;
+  }
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/auth/login' as any);
+      router.replace('/');
+    } catch (error) {
+      Alert.alert('Logout failed', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   return (
@@ -13,7 +31,7 @@ export default function AccountScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>Plan</Text>
-        <Text style={styles.value}>VIP Club Trial</Text>
+        <Text style={styles.value}>{subscription?.planName ?? 'Free'}</Text>
       </View>
 
       <View style={styles.card}>

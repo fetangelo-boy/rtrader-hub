@@ -1,30 +1,47 @@
 # AirTrader Mobile
 
-AirTrader Mobile is an Expo + React Native MVP for a trading club app with:
-- market dashboard
-- VIP chat list
-- chat detail screen with message history
-- account/subscription summary
+AirTrader Mobile is an Expo + React Native app connected to Supabase auth and a local tRPC backend.
+
+## Features
+- Email/password authentication via Supabase
+- Protected tRPC API with JWT bearer token from Supabase session
+- Chats list fetched from backend (`chat.list`)
+- Chat details with messages (`chat.getMessages`)
+- Send message flow (`chat.sendMessage`)
+- Account subscription status (`account.getSubscription`)
 
 ## Run locally
 
-```bash
-npm install
-npm run web
-```
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure environment:
+   ```bash
+   cp .env.example .env
+   ```
+3. Start API server (terminal 1):
+   ```bash
+   npm run server
+   ```
+4. Start Expo app (terminal 2):
+   ```bash
+   npm run start
+   ```
 
-For Android device/emulator:
+## Environment variables
 
-```bash
-npm run android
-```
+Required client values:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_API_BASE_URL` (for emulator/device)
 
-## Environment
+Required server values:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `PORT` (optional, default `3000`)
 
-Copy `.env.example` to `.env` and fill values when backend integration is ready:
-
-```bash
-cp .env.example .env
-```
-
-Current MVP works with local mock data, so env vars are optional for now.
+## Notes
+- For Android emulator, usually use `http://10.0.2.2:3000` as API base URL.
+- tRPC endpoint path is `/api/trpc`.

@@ -1,19 +1,33 @@
 import { FlatList, Pressable, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import { Text, View } from '@/components/Themed';
-import { chats } from '@/constants/mockData';
+import { trpc } from '@/lib/trpc';
+import { chatPreviews, type ChatPreview } from '@/constants/mockData';
 
 export default function TabTwoScreen() {
+  const chatListQuery = trpc.chat.list.useQuery(undefined, {
+    retry: 1,
+  });
+  const chats: Array<{ id: string; name: string; lastMessage: string }> = chatListQuery.data
+    ? chatListQuery.data
+    : chatPreviews.map((chat: ChatPreview) => ({
+        id: chat.id,
+        name: chat.title,
+        lastMessage: chat.lastMessage,
+      }));
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>VIP Club Chats</Text>
       <Text style={styles.subtitle}>Open a room to read updates and continue discussion.</Text>
+      {chatListQuery.isLoading ? <Text>Loading chats...</Text> : null}
+      {chatListQuery.error ? <Text>Using offline demo chats.</Text> : null}
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
-          <Link href={`/chat/${item.id}` as const} asChild>
+          <Link href={`../chat/${item.id}` as const} asChild>
             <Pressable style={styles.chatCard}>
               <Text style={styles.chatName}>{item.name}</Text>
               <Text style={styles.chatLastMessage}>{item.lastMessage}</Text>
