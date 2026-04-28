@@ -333,7 +333,16 @@ def handler(event: dict, context) -> dict:
                     SELECT id, plan, status, expires_at, created_at, receipt_url
                     FROM club_subscriptions
                     WHERE user_id = u.id
-                    ORDER BY created_at DESC LIMIT 1
+                    ORDER BY
+                        CASE
+                            WHEN status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) THEN 0
+                            WHEN status = 'active' AND expires_at > NOW() - INTERVAL '7 days' THEN 1
+                            WHEN status = 'pending' THEN 2
+                            ELSE 3
+                        END,
+                        expires_at DESC NULLS LAST,
+                        created_at DESC
+                    LIMIT 1
                 ) s ON true
                 WHERE u.role != 'owner'
             """
@@ -348,7 +357,7 @@ def handler(event: dict, context) -> dict:
             elif status_filter == "expiring":
                 query += " AND s.status = 'active' AND s.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'"
             elif status_filter == "expired":
-                query += " AND (s.status != 'active' OR s.expires_at < NOW())"
+                query += " AND s.status = 'active' AND s.expires_at < NOW()"
             elif status_filter == "pending":
                 query += " AND s.status = 'pending'"
             elif status_filter == "paid_30d":
@@ -389,7 +398,19 @@ def handler(event: dict, context) -> dict:
                         "telegram_id": r[10], "telegram_username": r[11],
                     })
                 return ok({"subscribers": result})
-            query += " ORDER BY s.created_at DESC NULLS LAST LIMIT 200"
+            query += """
+                ORDER BY
+                    CASE
+                        WHEN s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW() + INTERVAL '7 days') THEN 0
+                        WHEN s.status = 'active' AND s.expires_at > NOW() THEN 1
+                        WHEN s.status = 'pending' THEN 2
+                        WHEN s.status = 'active' AND s.expires_at <= NOW() THEN 3
+                        ELSE 4
+                    END,
+                    s.expires_at DESC NULLS LAST,
+                    s.created_at DESC NULLS LAST
+                LIMIT 200
+            """
             cur.execute(query, params)
             rows = cur.fetchall()
 
